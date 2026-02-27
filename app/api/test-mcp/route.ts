@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const BASE = 'https://zoho-mcp-server-production-aa12.up.railway.app';
+const BASE = 'https://monday-mpc-server.vercel.app';
 
 async function probe(label: string, url: string, opts?: RequestInit) {
   try {

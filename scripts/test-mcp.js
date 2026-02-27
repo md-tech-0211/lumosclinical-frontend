@@ -1,4 +1,4 @@
-const BASE = 'https://zoho-mcp-server-production-aa12.up.railway.app';
+const BASE = 'https://monday-mpc-server.vercel.app';
 
 async function test(label, url, opts) {
   console.log('\n' + label);
