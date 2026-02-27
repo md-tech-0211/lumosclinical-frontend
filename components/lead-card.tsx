@@ -26,7 +26,7 @@ function getInitials(lead: Lead, type: string): string {
 
 function getAvatarColor(lead: Lead): string {
   const colors = [
-    'bg-teal-100 text-teal-700',
+    'bg-primary/15 text-primary',
     'bg-green-100 text-green-700',
     'bg-blue-100 text-blue-700',
     'bg-amber-100 text-amber-700',

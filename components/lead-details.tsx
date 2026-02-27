@@ -54,13 +54,13 @@ function getInitials(leadDetail: LeadDetailResponse): string {
 
 function getAvatarColor(leadDetail: LeadDetailResponse): string {
   const colors = [
-    'bg-teal-500 text-white',
+    'bg-primary text-primary-foreground',
     'bg-green-500 text-white',
     'bg-blue-500 text-white',
     'bg-amber-500 text-white',
     'bg-rose-500 text-white',
     'bg-purple-500 text-white',
-    'bg-cyan-500 text-white',
+    'bg-accent text-primary-foreground',
   ];
   
   const hash = (leadDetail.data.id || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -287,12 +287,12 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
             {/* Company Overview */}
             {analysis?.summary && (
               <Card className="border-0 shadow-sm overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white pb-3">
+                <CardHeader className="bg-gradient-to-r from-primary to-accent text-primary-foreground pb-3">
                   <div className="flex items-center gap-2">
                     <Layers className="h-5 w-5" />
                     <CardTitle className="text-lg">Company Overview</CardTitle>
                   </div>
-                  <p className="text-sm text-teal-50 mt-1">AI-powered analysis</p>
+                  <p className="text-sm text-primary-foreground/90 mt-1">AI-powered analysis</p>
                 </CardHeader>
                 <CardContent className="pt-4">
                   <div className="border-l-4 border-primary pl-4 mb-6">
@@ -333,13 +333,13 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
                       </Badge>
                     )}
                     {analysis.business_model && (
-                      <Badge variant="outline" className="gap-1.5 px-3 py-1 border-teal-200 bg-teal-50 text-teal-700">
+                      <Badge variant="outline" className="gap-1.5 px-3 py-1 border-primary/30 bg-primary/10 text-primary">
                         <span className="text-xs font-medium">Model:</span>
                         <span className="font-semibold">{analysis.business_model}</span>
                       </Badge>
                     )}
                     {analysis.motion && (
-                      <Badge variant="outline" className="gap-1.5 px-3 py-1 border-cyan-200 bg-cyan-50 text-cyan-700">
+                      <Badge variant="outline" className="gap-1.5 px-3 py-1 border-accent/50 bg-accent/20 text-foreground">
                         <span className="text-xs font-medium">Motion:</span>
                         <span className="font-semibold">{analysis.motion}</span>
                       </Badge>
@@ -353,14 +353,14 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
                   </div>
                   
                   {analysis.likely_icp_canada && (
-                    <div className="mt-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
+                    <div className="mt-6 p-4 bg-primary/10 rounded-lg border border-primary/20">
                       <div className="flex items-start gap-2">
-                        <Target className="h-4 w-4 text-teal-600 mt-0.5" />
+                        <Target className="h-4 w-4 text-primary mt-0.5" />
                         <div>
-                          <p className="text-xs font-semibold text-teal-900 uppercase tracking-wide mb-1">
+                          <p className="text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                             LIKELY ICP IN CANADA
                           </p>
-                          <p className="text-sm text-teal-700">{analysis.likely_icp_canada}</p>
+                          <p className="text-sm text-foreground">{analysis.likely_icp_canada}</p>
                         </div>
                       </div>
                     </div>
@@ -515,7 +515,7 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
-                    <div className="bg-teal-100 text-teal-700 p-2 rounded-lg">
+                    <div className="bg-primary/15 text-primary p-2 rounded-lg">
                       <MessageCircleQuestion className="h-5 w-5" />
                     </div>
                     <CardTitle className="text-lg">Questions to Ask Your Lead</CardTitle>
@@ -525,7 +525,7 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
                   <ul className="space-y-2.5">
                     {analysis.questions_to_ask.map((question, index) => (
                       <li key={index} className="flex items-start gap-3 py-1.5">
-                        <span className="text-teal-600 font-semibold flex-shrink-0 text-sm">
+                        <span className="text-primary font-semibold flex-shrink-0 text-sm">
                           {index + 1}.
                         </span>
                         <p className="text-sm leading-relaxed">{question}</p>
@@ -582,7 +582,7 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
-                    <div className="bg-teal-100 text-teal-700 p-2 rounded-lg">
+                    <div className="bg-primary/15 text-primary p-2 rounded-lg">
                       <Target className="h-5 w-5" />
                     </div>
                     <CardTitle className="text-lg">Fit Assessment</CardTitle>

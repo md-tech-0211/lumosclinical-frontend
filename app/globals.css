@@ -2,8 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lumos Clinical branding - Poppins, Heebo, Inter */
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Poppins', Helvetica, Arial, sans-serif;
 }
 
 @layer utilities {
@@ -14,39 +15,44 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 10%;
+    /* Lumos: primary #F9BA37, accent #FBD279, background #FFFFFF, textPrimary #666666 */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 40%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 0 0% 40%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-    --primary: 160 60% 40%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 0 0% 95%;
+    --popover-foreground: 0 0% 40%;
+    --primary: 43 94% 60%;
+    --primary-foreground: 0 0% 15%;
+    --secondary: 44 93% 92%;
+    --secondary-foreground: 0 0% 20%;
+    --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
-    --accent: 160 60% 96%;
-    --accent-foreground: 160 60% 40%;
+    --accent: 44 93% 72%;
+    --accent-foreground: 0 0% 15%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 160 60% 40%;
-    --chart-1: 160 60% 40%;
-    --chart-2: 200 70% 50%;
-    --chart-3: 240 60% 60%;
-    --chart-4: 40 80% 60%;
+    --border: 0 0% 73%;
+    --input: 0 0% 73%;
+    --ring: 43 94% 60%;
+    --chart-1: 43 94% 60%;
+    --chart-2: 44 93% 72%;
+    --chart-3: 200 70% 50%;
+    --chart-4: 280 65% 60%;
     --chart-5: 20 70% 55%;
-    --radius: 0.5rem;
+    --radius: 3px;
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 10%;
-    --sidebar-primary: 160 60% 40%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 98%;
-    --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 0 0% 93%;
-    --sidebar-ring: 160 60% 40%;
+    --sidebar-foreground: 0 0% 40%;
+    --sidebar-primary: 43 94% 60%;
+    --sidebar-primary-foreground: 0 0% 15%;
+    --sidebar-accent: 44 93% 92%;
+    --sidebar-accent-foreground: 0 0% 20%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 43 94% 60%;
+    /* Input styling per branding: white bg, #4E4E4E text, #BBBBBB border, 0 radius, no shadow */
+    --input-bg: 0 0% 100%;
+    --input-text: 0 0% 31%;
+    --input-border: 0 0% 73%;
   }
   .dark {
     --background: 0 0% 7%;
@@ -55,32 +61,35 @@ body {
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 10%;
     --popover-foreground: 0 0% 98%;
-    --primary: 160 60% 50%;
+    --primary: 43 94% 55%;
     --primary-foreground: 0 0% 10%;
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 60%;
-    --accent: 160 60% 20%;
-    --accent-foreground: 160 60% 90%;
+    --accent: 44 93% 35%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 20%;
     --input: 0 0% 20%;
-    --ring: 160 60% 50%;
-    --chart-1: 160 60% 50%;
-    --chart-2: 200 70% 60%;
-    --chart-3: 240 60% 70%;
-    --chart-4: 40 80% 70%;
+    --ring: 43 94% 55%;
+    --chart-1: 43 94% 55%;
+    --chart-2: 44 93% 45%;
+    --chart-3: 200 70% 60%;
+    --chart-4: 280 65% 70%;
     --chart-5: 20 70% 65%;
     --sidebar-background: 0 0% 10%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 160 60% 50%;
+    --sidebar-primary: 43 94% 55%;
     --sidebar-primary-foreground: 0 0% 10%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 160 60% 50%;
+    --sidebar-ring: 43 94% 55%;
+    --input-bg: 0 0% 12%;
+    --input-text: 0 0% 85%;
+    --input-border: 0 0% 25%;
   }
 }
 

@@ -1,14 +1,20 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Poppins } from 'next/font/google'
+import Image from 'next/image'
+import Link from 'next/link'
 
 import './globals.css'
 
-const _geist = Geist({ subsets: ['latin'] })
-const _geistMono = Geist_Mono({ subsets: ['latin'] })
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-poppins',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'Lumos Clinical',
+  description: 'Patient-focused mental health care in San Jose and Los Gatos, CA.',
   generator: 'v0.app',
 }
 
@@ -18,8 +24,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+    <html lang="en" className={poppins.variable}>
+      <body className="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground">
+        <header className="border-b border-border bg-background">
+          
+        </header>
+        <main className="flex-1 flex flex-col">
+          {children}
+        </main>
+      </body>
     </html>
   )
 }

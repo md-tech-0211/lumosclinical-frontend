@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
@@ -188,18 +189,19 @@ export function MondayAssistantChat() {
   return (
     <div className="flex flex-col h-full bg-background">
       <div className="border-b px-6 py-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Monday.com AI Assistant</h2>
-          {isLoading && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto">
-              <Spinner size="sm" />
-              Querying Monday...
-            </span>
-          )}
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <Image
+            src="/assets/logo/logo.jpg"
+            alt="Lumos"
+            width={72}
+            height={72}
+            className="h-16 w-28 flex items-center justify-center object-contain flex-shrink-0"
+          />
+          <h2 className="text-lg flex items-center justify-centerfont-semibold">AI Assistant</h2>
+          
         </div>
-        <p className="text-sm text-muted-foreground">
-          Connected to Monday.com via MCP. Ask questions about your boards, items, and workflows.
+        <p className="text-sm flex items-center justify-center text-muted-foreground">
+          Ask questions about your boards, items, and workflows.
         </p>
       </div>
 
@@ -210,9 +212,9 @@ export function MondayAssistantChat() {
               <div className="bg-primary/10 text-primary rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                 <Sparkles className="h-8 w-8" />
               </div>
-              <h3 className="font-semibold text-lg mb-2">Monday Assistant</h3>
+              <h3 className="font-semibold text-lg mb-2">Lumos AI Assistant</h3>
               <p className="text-muted-foreground text-sm mb-6">
-                I can help you explore and summarize your Monday.com data. Try asking:
+                I can help you explore and summarize your data. Try asking:
               </p>
               <div className="grid gap-2">
                 {[
