@@ -218,8 +218,8 @@ export function MondayAssistantChat() {
               </p>
               <div className="grid gap-2">
                 {[
-                  'Show me the latest  5items on my Projects Overview board',
-                  'Which tasks are overdue this week?',
+                  'Show me latest persons signed up recently in Website Submissions',
+                  'How many studies are in "Interested in participating in our clinical studies"',
                   'Summarize progress on the Master Subject Visit Tracker board',
                 ].map((suggestion) => (
                   <button
