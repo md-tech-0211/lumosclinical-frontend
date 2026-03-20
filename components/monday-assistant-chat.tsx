@@ -218,9 +218,9 @@ export function MondayAssistantChat() {
               </p>
               <div className="grid gap-2">
                 {[
-                  'Show me latest persons signed up recently in Website Submissions',
-                  'How many studies are in "Interested in participating in our clinical studies"',
-                  'Summarize progress on the Master Subject Visit Tracker board',
+                  'Show me the entries from the Incoming Leads Tracker board with today’s referral date.',
+                  'List the entries from the Depression Pre-Screening form along with their status.',
+                  'What is the status of "X" person?',
                 ].map((suggestion) => (
                   <button
                     key={suggestion}
