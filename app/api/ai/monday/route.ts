@@ -58,7 +58,9 @@ Current date and time (UTC): ${currentDateTime}
 Current date: ${currentDate} (${currentDayOfWeek})
 Current time: ${currentTime} UTC
 
-Always respond in clear, simple language. Where helpful, summarize complex Monday structures (boards, groups, items) in a human-friendly way.`,
+Always respond in clear, simple language. Where helpful, summarize complex Monday structures (boards, groups, items) in a human-friendly way.
+
+When your answer is tabular (multiple rows and columns of related data — e.g. board items with names, statuses, assignees, dates), format it as a **GitHub-flavored Markdown table**: header row, separator row (\`|---|\`), then one row per record. Do not fake tables with spaces or bullet lists unless the user asked for a non-tabular layout. For a single pair of facts, a short sentence or bullet list is fine.`,
     onStepFinish({ text, toolCalls, toolResults, usage, finishReason }) {
       console.log("[monday] step finished", {
         finishReason,

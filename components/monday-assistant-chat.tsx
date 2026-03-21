@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Send, Sparkles, Bot, User, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AssistantMarkdown } from '@/components/assistant-markdown';
 
 interface ChatMessage {
   id: string;
@@ -197,7 +198,7 @@ export function MondayAssistantChat() {
             height={72}
             className="h-16 w-28 flex items-center justify-center object-contain flex-shrink-0"
           />
-          <h2 className="text-lg flex items-center justify-centerfont-semibold">AI Assistant</h2>
+          <h2 className="text-lg flex items-center justify-center font-semibold">AI Assistant</h2>
           
         </div>
         <p className="text-sm flex items-center justify-center text-muted-foreground">
@@ -276,11 +277,14 @@ export function MondayAssistantChat() {
                         ))}
                       </div>
                     )}
-                    {message.content && (
-                      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                        {message.content}
-                      </p>
-                    )}
+                    {message.content &&
+                      (isUser ? (
+                        <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                          {message.content}
+                        </p>
+                      ) : (
+                        <AssistantMarkdown content={message.content} />
+                      ))}
                     {!message.content && isLoading && !isUser && (
                       <div className="flex items-center gap-2">
                         <Spinner size="sm" />
