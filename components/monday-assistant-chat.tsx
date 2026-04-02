@@ -188,25 +188,37 @@ export function MondayAssistantChat() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <div className="border-b px-6 py-4">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <Image
-            src="/assets/logo/logo.jpg"
-            alt="Lumos"
-            width={72}
-            height={72}
-            className="h-16 w-28 flex items-center justify-center object-contain flex-shrink-0"
-          />
-          <h2 className="text-lg flex items-center justify-center font-semibold">AI Assistant</h2>
-          
+    <div className="flex flex-col h-full">
+      <div className="rounded-2xl border bg-card/80 backdrop-blur shadow-sm overflow-hidden flex flex-col min-h-[70vh]">
+        <div className="border-b bg-background/40 px-4 sm:px-6 py-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/10 text-primary rounded-xl p-2">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold leading-tight">Monday AI Assistant</h2>
+                  <span className="text-[11px] rounded-full border px-2 py-0.5 text-muted-foreground">
+                    Bedrock
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Ask about boards, items, updates, and workflows.
+                </p>
+              </div>
+            </div>
+            <Image
+              src="/assets/logo/logo.jpg"
+              alt="Lumos"
+              width={112}
+              height={40}
+              className="h-9 w-auto object-contain opacity-90"
+            />
+          </div>
         </div>
-        <p className="text-sm flex items-center justify-center text-muted-foreground">
-          Ask questions about your boards, items, and workflows.
-        </p>
-      </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-4">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-center">
             <div className="max-w-md">
@@ -226,7 +238,7 @@ export function MondayAssistantChat() {
                   <button
                     key={suggestion}
                     onClick={() => sendMessage(suggestion)}
-                    className="text-left px-4 py-2.5 rounded-lg border text-sm hover:bg-accent transition-colors"
+                    className="text-left px-4 py-2.5 rounded-xl border bg-background/50 text-sm hover:bg-accent transition-colors"
                   >
                     {suggestion}
                   </button>
@@ -248,16 +260,16 @@ export function MondayAssistantChat() {
                   )}
                 >
                   {!isUser && (
-                    <div className="bg-primary/10 text-primary rounded-full p-1.5 h-8 w-8 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="bg-primary/10 text-primary rounded-full p-1.5 h-8 w-8 flex items-center justify-center flex-shrink-0 mt-0.5 ring-1 ring-border/60">
                       <Bot className="h-4 w-4" />
                     </div>
                   )}
                   <div
                     className={cn(
-                      'max-w-2xl rounded-lg px-4 py-3',
+                      'max-w-2xl rounded-2xl px-4 py-3 shadow-sm ring-1 ring-border/60',
                       isUser
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
+                        : 'bg-background/60'
                     )}
                   >
                     {message.toolCalls && message.toolCalls.length > 0 && (
@@ -293,7 +305,7 @@ export function MondayAssistantChat() {
                     )}
                   </div>
                   {isUser && (
-                    <div className="bg-primary text-primary-foreground rounded-full p-1.5 h-8 w-8 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="bg-primary text-primary-foreground rounded-full p-1.5 h-8 w-8 flex items-center justify-center flex-shrink-0 mt-0.5 ring-1 ring-border/60">
                       <User className="h-4 w-4" />
                     </div>
                   )}
@@ -317,29 +329,34 @@ export function MondayAssistantChat() {
             <div ref={messagesEndRef} />
           </>
         )}
-      </div>
+        </div>
 
-      <div className="border-t px-6 py-4">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            placeholder="Ask about your boards, items, workflows..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            size="icon"
-          >
-            {isLoading ? (
-              <Spinner size="sm" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </form>
+        <div className="border-t bg-background/40 px-4 sm:px-6 py-4">
+          <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+            <Input
+              placeholder="Ask about your boards, items, workflows..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={isLoading}
+              className="flex-1 h-11 rounded-xl bg-background"
+            />
+            <Button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              size="icon"
+              className="h-11 w-11 rounded-xl"
+            >
+              {isLoading ? (
+                <Spinner size="sm" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </form>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Tip: include a board name and a date range for best results.
+          </div>
+        </div>
       </div>
     </div>
   );

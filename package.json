@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "^4.0.83",
     "@ai-sdk/mcp": "^1.0.21",
+    "@ai-sdk/anthropic": "^3.0.0",
     "@ai-sdk/openai": "^3.0.29",
     "@hookform/resolvers": "^3.9.1",
     "@modelcontextprotocol/sdk": "^1.12.1",
