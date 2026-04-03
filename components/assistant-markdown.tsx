@@ -3,6 +3,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
+import { sanitizeAssistantDisplayText } from '@/lib/sanitize-assistant-text';
 
 const components: Components = {
   table: ({ children, ...props }) => (
@@ -111,10 +112,11 @@ const components: Components = {
 };
 
 export function AssistantMarkdown({ content }: { content: string }) {
+  const safe = sanitizeAssistantDisplayText(content);
   return (
     <div className="text-sm leading-relaxed text-foreground [&_p]:text-foreground">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {content}
+        {safe}
       </ReactMarkdown>
     </div>
   );

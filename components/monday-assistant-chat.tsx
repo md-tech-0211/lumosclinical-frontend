@@ -15,6 +15,10 @@ import {
   upsertSession,
   sessionTitleFromMessages,
 } from '@/lib/chat-sessions';
+import {
+  looksLikeHtmlDocument,
+  sanitizeAssistantDisplayText,
+} from '@/lib/sanitize-assistant-text';
 
 const REQUEST_TIMEOUT_MS = 120_000;
 
@@ -24,6 +28,9 @@ const EMPTY_REPLY_FALLBACK =
 function friendlyErrorMessage(err: unknown): string {
   if (err instanceof Error) {
     const m = err.message;
+    if (looksLikeHtmlDocument(m)) {
+      return "Something returned a web error page instead of a normal reply. Check MONDAY_MCP_URL and that your Monday MCP server is running.";
+    }
     if (/failed to fetch|networkerror|network request failed|load failed/i.test(m)) {
       return "Couldn’t reach the server. Check that the app is running and your connection.";
     }
@@ -33,7 +40,7 @@ function friendlyErrorMessage(err: unknown): string {
     if (m.includes("No response body")) {
       return "The server didn’t return any data. Please try again.";
     }
-    return m;
+    return m.length > 800 ? `${m.slice(0, 800)}…` : m;
   }
   return "Something went wrong. Please try again.";
 }
@@ -145,7 +152,11 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
               : parsed.error;
           }
         } catch {
-          if (errorBody.trim()) errorMessage = errorBody;
+          if (errorBody.trim()) {
+            errorMessage = /<!DOCTYPE|<html[\s>]/i.test(errorBody)
+              ? "The server returned a web page instead of an API response. Check that /api/ai/monday is correct and the app is running."
+              : errorBody.slice(0, 500);
+          }
         }
         console.warn("[monday] Chat API error:", response.status, errorBody || "(empty body)");
         throw new Error(errorMessage);
@@ -169,10 +180,11 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
       ]);
 
       const updateMessage = (content: string, tools: typeof toolCalls) => {
+        const safe = sanitizeAssistantDisplayText(content);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content, toolCalls: [...tools] }
+              ? { ...m, content: safe, toolCalls: [...tools] }
               : m
           )
         );
@@ -244,8 +256,8 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
       const hasText = fullContent.trim().length > 0;
       const hasTools = toolCalls.length > 0;
-      const finalText =
-        hasText || hasTools ? fullContent : EMPTY_REPLY_FALLBACK;
+      const rawFinal = hasText || hasTools ? fullContent : EMPTY_REPLY_FALLBACK;
+      const finalText = sanitizeAssistantDisplayText(rawFinal);
 
       updateMessage(finalText, toolCalls);
     } catch (err: any) {
