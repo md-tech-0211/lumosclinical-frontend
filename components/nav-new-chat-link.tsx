@@ -11,7 +11,7 @@ export function NavNewChatLink({ className }: { className?: string }) {
     <button
       type="button"
       className={cn(
-        'text-muted-foreground hover:text-foreground transition-colors text-sm bg-transparent border-0 p-0 cursor-pointer font-inherit font-sans',
+        'rounded-full px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground',
         className
       )}
       onClick={() => router.push(`/?new=${Date.now()}`)}

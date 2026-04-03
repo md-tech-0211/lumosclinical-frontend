@@ -98,8 +98,31 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
+}
+
+/* Ambient page backdrop — soft gradients + subtle grid */
+.luna-app-bg {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(ellipse 100% 60% at 50% -15%, hsl(var(--primary) / 0.14), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 20%, hsl(var(--chart-3) / 0.1), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 0% 90%, hsl(var(--accent) / 0.12), transparent 45%),
+    linear-gradient(
+      180deg,
+      hsl(var(--background)) 0%,
+      hsl(var(--muted) / 0.35) 100%
+    );
+  background-attachment: fixed;
+}
+
+.dark .luna-app-bg {
+  background-image:
+    radial-gradient(ellipse 100% 60% at 50% -15%, hsl(var(--primary) / 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 20%, hsl(var(--chart-3) / 0.08), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 0% 90%, hsl(var(--accent) / 0.06), transparent 45%),
+    linear-gradient(180deg, hsl(var(--background)) 0%, hsl(0 0% 12%) 100%);
 }
 
 /* Luna AI orb — motion (no JS required) */

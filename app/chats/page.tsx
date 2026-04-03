@@ -36,18 +36,19 @@ export default function ChatsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div className="max-w-2xl mx-auto space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Previous chats</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Previous chats
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Open a saved conversation or start a new one.
           </p>
         </div>
         <Button
           type="button"
-          variant="secondary"
-          className="rounded-xl w-fit"
+          className="rounded-2xl w-fit bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/20 hover:opacity-95"
           onClick={() => router.push(`/?new=${Date.now()}`)}
         >
           New chat
@@ -55,7 +56,7 @@ export default function ChatsPage() {
       </div>
 
       {sessions.length === 0 ? (
-        <Card className="rounded-2xl border-dashed">
+        <Card className="rounded-2xl border-dashed border-border/60 bg-card/50 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-muted-foreground" />
@@ -70,7 +71,7 @@ export default function ChatsPage() {
         <ul className="space-y-3">
           {sessions.map((s) => (
             <li key={s.id}>
-              <Card className="rounded-2xl transition-shadow hover:shadow-md">
+              <Card className="rounded-2xl border-border/50 bg-card/70 backdrop-blur-sm transition-all hover:border-primary/25 hover:shadow-lg hover:shadow-primary/5">
                 <CardContent className="p-4 flex items-start gap-3">
                   <div className="bg-primary/10 text-primary rounded-xl p-2 shrink-0 mt-0.5">
                     <MessageSquare className="h-4 w-4" />
