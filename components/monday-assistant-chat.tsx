@@ -5,20 +5,48 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { Send, Sparkles, Bot, User, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AssistantMarkdown } from '@/components/assistant-markdown';
+import { LunaAiOrb } from '@/components/luna-ai-orb';
+import {
+  type ChatMessage,
+  getSession,
+  upsertSession,
+  sessionTitleFromMessages,
+} from '@/lib/chat-sessions';
 
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  toolCalls?: Array<{ name: string; status: 'pending' | 'done' }>;
+const REQUEST_TIMEOUT_MS = 120_000;
+
+const EMPTY_REPLY_FALLBACK =
+  "I couldn’t get a reply from the AI (the response was empty). Please try again in a moment.";
+
+function friendlyErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    const m = err.message;
+    if (/failed to fetch|networkerror|network request failed|load failed/i.test(m)) {
+      return "Couldn’t reach the server. Check that the app is running and your connection.";
+    }
+    if (/abort/i.test(m)) {
+      return "The request was cancelled.";
+    }
+    if (m.includes("No response body")) {
+      return "The server didn’t return any data. Please try again.";
+    }
+    return m;
+  }
+  return "Something went wrong. Please try again.";
 }
 
-export function MondayAssistantChat() {
+export type MondayAssistantChatProps = {
+  /** When set, load messages for this session (e.g. `/chats/[id]`). Omit for a new chat on `/`. */
+  initialSessionId?: string;
+};
+
+export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatProps) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -32,8 +60,36 @@ export function MondayAssistantChat() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (!initialSessionId) return;
+    const stored = getSession(initialSessionId);
+    if (stored) {
+      setMessages(stored.messages);
+      setSessionId(stored.id);
+    } else {
+      setMessages([]);
+      setSessionId(initialSessionId);
+    }
+    setError(null);
+  }, [initialSessionId]);
+
+  useEffect(() => {
+    if (!sessionId || messages.length === 0) return;
+    upsertSession({
+      id: sessionId,
+      title: sessionTitleFromMessages(messages),
+      updatedAt: Date.now(),
+      messages,
+    });
+  }, [sessionId, messages]);
+
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    const activeSessionId = sessionId ?? crypto.randomUUID();
+    if (!sessionId) {
+      setSessionId(activeSessionId);
+    }
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -55,8 +111,16 @@ export function MondayAssistantChat() {
       lastMessage: apiMessages[apiMessages.length - 1],
     });
 
+    let streamAssistantId: string | null = null;
+    let abortedByTimeout = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     try {
       abortRef.current = new AbortController();
+      timeoutId = setTimeout(() => {
+        abortedByTimeout = true;
+        abortRef.current?.abort();
+      }, REQUEST_TIMEOUT_MS);
 
       const response = await fetch('/api/ai/monday', {
         method: 'POST',
@@ -69,14 +133,21 @@ export function MondayAssistantChat() {
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');
-        let errorMessage = `Server error: ${response.status}`;
+        let errorMessage = `Server error (${response.status}).`;
         try {
-          const parsed = JSON.parse(errorBody);
-          if (parsed.error) errorMessage = parsed.error;
+          const parsed = JSON.parse(errorBody) as {
+            error?: string;
+            details?: string;
+          };
+          if (parsed.error) {
+            errorMessage = parsed.details
+              ? `${parsed.error} ${parsed.details}`
+              : parsed.error;
+          }
         } catch {
-          if (errorBody) errorMessage = errorBody;
+          if (errorBody.trim()) errorMessage = errorBody;
         }
-        console.error('[monday] Chat API error response:', response.status, errorBody);
+        console.warn("[monday] Chat API error:", response.status, errorBody || "(empty body)");
         throw new Error(errorMessage);
       }
 
@@ -90,6 +161,7 @@ export function MondayAssistantChat() {
       let buffer = '';
 
       const assistantId = `assistant-${Date.now()}`;
+      streamAssistantId = assistantId;
 
       setMessages((prev) => [
         ...prev,
@@ -169,15 +241,63 @@ export function MondayAssistantChat() {
       }
 
       toolCalls = toolCalls.map((t) => ({ ...t, status: 'done' as const }));
-      updateMessage(fullContent, toolCalls);
+
+      const hasText = fullContent.trim().length > 0;
+      const hasTools = toolCalls.length > 0;
+      const finalText =
+        hasText || hasTools ? fullContent : EMPTY_REPLY_FALLBACK;
+
+      updateMessage(finalText, toolCalls);
     } catch (err: any) {
-      if (err?.name === 'AbortError') return;
       console.error('[monday] Chat error:', err);
-      setError(err?.message || 'Failed to get a response');
+
+      if (err?.name === "AbortError") {
+        const timeoutMsg =
+          "The request timed out waiting for the AI. Please try again.";
+        if (abortedByTimeout) {
+          if (streamAssistantId) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === streamAssistantId
+                  ? {
+                      ...m,
+                      content: timeoutMsg,
+                      toolCalls: [],
+                    }
+                  : m
+              )
+            );
+          } else {
+            setError(timeoutMsg);
+          }
+        }
+        return;
+      }
+
+      const msg = friendlyErrorMessage(err);
+      if (streamAssistantId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === streamAssistantId
+              ? {
+                  ...m,
+                  content: `Sorry — I couldn’t complete that reply.\n\n${msg}`,
+                  toolCalls: m.toolCalls?.map((t) => ({
+                    ...t,
+                    status: "done" as const,
+                  })),
+                }
+              : m
+          )
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  }, [isLoading, messages]);
+  }, [isLoading, messages, sessionId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,29 +311,38 @@ export function MondayAssistantChat() {
     <div className="flex flex-col h-full">
       <div className="rounded-2xl border bg-card/80 backdrop-blur shadow-sm overflow-hidden flex flex-col min-h-[70vh]">
         <div className="border-b bg-background/40 px-4 sm:px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-primary/10 text-primary rounded-xl p-2">
-                <Bot className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold leading-tight">Monday AI Assistant</h2>
-                  <span className="text-[11px] rounded-full border px-2 py-0.5 text-muted-foreground">
-                    Bedrock
-                  </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start justify-between gap-4 sm:justify-start sm:flex-1">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="bg-primary/10 text-primary rounded-xl p-2 shrink-0">
+                  <Bot className="h-5 w-5" />
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Ask about boards, items, updates, and workflows.
-                </p>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-semibold leading-tight">Monday AI Assistant</h2>
+                    <span className="text-[11px] rounded-full border px-2 py-0.5 text-muted-foreground">
+                      Bedrock
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Ask about boards, items, updates, and workflows.
+                  </p>
+                </div>
               </div>
+              <Image
+                src="/assets/logo/logo.jpg"
+                alt="Luna"
+                width={112}
+                height={40}
+                className="h-9 w-auto object-contain opacity-90 sm:hidden"
+              />
             </div>
             <Image
               src="/assets/logo/logo.jpg"
-              alt="Lumos"
+              alt="Luna"
               width={112}
               height={40}
-              className="h-9 w-auto object-contain opacity-90"
+              className="hidden sm:block h-9 w-auto object-contain opacity-90 sm:ml-auto"
             />
           </div>
         </div>
@@ -222,10 +351,8 @@ export function MondayAssistantChat() {
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-center">
             <div className="max-w-md">
-              <div className="bg-primary/10 text-primary rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <Sparkles className="h-8 w-8" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Lumos AI Assistant</h3>
+              <LunaAiOrb />
+              <h3 className="font-semibold text-lg mb-2">Luna AI Assistant</h3>
               <p className="text-muted-foreground text-sm mb-6">
                 I can help you explore and summarize your data. Try asking:
               </p>

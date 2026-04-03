@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Poppins } from 'next/font/google'
 import Image from 'next/image'
 import Link from 'next/link'
+import { NavNewChatLink } from '@/components/nav-new-chat-link'
 import { ThemeProvider } from '@/components/theme-provider'
 
 import './globals.css'
@@ -14,7 +15,7 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  title: 'Lumos Clinical',
+  title: 'Luna Clinical',
   description: 'Patient-focused mental health care in San Jose and Los Gatos, CA.',
   generator: 'v0.app',
 }
@@ -35,19 +36,25 @@ export default function RootLayout({
                   <Link href="/" className="flex items-center gap-3">
                     <Image
                       src="/assets/logo/logo.jpg"
-                      alt="Lumos Clinical"
+                      alt="Luna Clinical"
                       width={96}
                       height={32}
                       className="h-8 w-auto object-contain"
                       priority
                     />
                     <span className="hidden sm:inline text-sm font-semibold tracking-tight">
-                      Lumos Clinical
+                      Luna Clinical
                     </span>
                   </Link>
-                  <div className="text-xs text-muted-foreground">
-                    Monday Assistant
-                  </div>
+                  <nav className="flex items-center gap-4 text-sm">
+                    <NavNewChatLink />
+                    <Link
+                      href="/chats"
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Previous chat
+                    </Link>
+                  </nav>
                 </div>
               </div>
             </header>

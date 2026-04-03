@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Lumos Clinical branding - Poppins, Heebo, Inter */
+/* Luna Clinical branding - Poppins, Heebo, Inter */
 body {
   font-family: 'Poppins', Helvetica, Arial, sans-serif;
 }
@@ -15,7 +15,7 @@ body {
 
 @layer base {
   :root {
-    /* Lumos: primary #F9BA37, accent #FBD279, background #FFFFFF, textPrimary #666666 */
+    /* Luna: primary #F9BA37, accent #FBD279, background #FFFFFF, textPrimary #666666 */
     --background: 0 0% 100%;
     --foreground: 0 0% 40%;
     --card: 0 0% 100%;
@@ -99,5 +99,84 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Luna AI orb — motion (no JS required) */
+@keyframes luna-ai-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@keyframes luna-ai-spin-reverse {
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes luna-ai-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes luna-ai-pulse-soft {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+}
+@keyframes luna-ai-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.05);
+  }
+}
+
+@layer utilities {
+  .animate-luna-ai-spin {
+    animation: luna-ai-spin 8s linear infinite;
+  }
+  .animate-luna-ai-spin-reverse {
+    animation: luna-ai-spin-reverse 6s linear infinite;
+  }
+  .animate-luna-ai-float {
+    animation: luna-ai-float 5s ease-in-out infinite;
+  }
+  .animate-luna-ai-pulse-soft {
+    animation: luna-ai-pulse-soft 3.5s ease-in-out infinite;
+  }
+  .animate-luna-ai-glow {
+    animation: luna-ai-glow 4s ease-in-out infinite;
+  }
+  .animate-luna-ai-spin-slow {
+    animation: luna-ai-spin 11s linear infinite;
+  }
+  .animate-luna-ai-spin-reverse-mid {
+    animation: luna-ai-spin-reverse 5s linear infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-luna-ai-spin,
+  .animate-luna-ai-spin-reverse,
+  .animate-luna-ai-spin-slow,
+  .animate-luna-ai-spin-reverse-mid,
+  .animate-luna-ai-float,
+  .animate-luna-ai-pulse-soft,
+  .animate-luna-ai-glow {
+    animation: none !important;
   }
 }
