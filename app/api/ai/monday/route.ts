@@ -4,6 +4,8 @@ import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type { ToolSet } from "ai";
 
 export const runtime = "nodejs";
+/** Vercel: allow long Bedrock + MCP streams (Hobby plan max 10s unless upgraded). */
+export const maxDuration = 60;
 
 function jsonError(
   status: number,
