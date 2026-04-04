@@ -321,10 +321,10 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
   return (
     <div className="flex flex-col h-full">
-      <div className="relative p-[1px] rounded-[1.75rem] bg-gradient-to-br from-primary/45 via-chart-3/25 to-accent/35 shadow-[0_28px_90px_-20px_hsl(var(--primary)/0.35)] dark:shadow-[0_28px_80px_-24px_rgba(0,0,0,0.55)]">
-        <div className="relative flex flex-col overflow-hidden rounded-[calc(1.75rem-1px)] border border-border/60 bg-card/75 backdrop-blur-xl dark:border-border/40 dark:bg-card/55 min-h-[70vh]">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.08),transparent_55%)] pointer-events-none" />
-          <div className="relative border-b border-border/50 bg-gradient-to-r from-muted/30 via-transparent to-muted/20 px-4 sm:px-6 py-4">
+      <div className="relative p-[1px] rounded-[1.75rem] bg-gradient-to-br from-primary/30 via-chart-3/15 to-accent/22 dark:from-primary/45 dark:via-chart-3/25 dark:to-accent/35 shadow-[0_20px_50px_-12px_rgb(15_23_42/0.06),0_0_0_1px_hsl(var(--border)/0.45)] dark:shadow-[0_28px_80px_-24px_rgba(0,0,0,0.55)]">
+        <div className="relative flex flex-col overflow-hidden rounded-[calc(1.75rem-1px)] border border-border/80 bg-card shadow-sm backdrop-blur-xl dark:border-border/40 dark:bg-card/55 dark:shadow-none min-h-[70vh]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.06),transparent_55%)] dark:bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.08),transparent_55%)] pointer-events-none" />
+          <div className="relative border-b border-border/60 bg-gradient-to-r from-muted/50 via-muted/20 to-transparent dark:border-border/50 dark:from-muted/30 dark:via-transparent dark:to-muted/20 px-4 sm:px-6 py-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start justify-between gap-4 sm:justify-start sm:flex-1 sm:items-center">
                 <div className="flex items-center gap-3.5 min-w-0">
@@ -350,19 +350,19 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                   </div>
                 </div>
                 <Image
-                  src="/assets/logo/logo.jpg"
+                  src="/assets/logo/lo.jpeg"
                   alt="Luna"
                   width={112}
                   height={40}
-                  className="h-9 w-auto object-contain opacity-95 drop-shadow-sm sm:hidden"
+                  className="h-9 w-auto rounded-[5px] object-contain opacity-95 drop-shadow-sm sm:hidden"
                 />
               </div>
               <Image
-                src="/assets/logo/logo.jpg"
+                src="/assets/logo/lo.jpeg"
                 alt="Luna"
                 width={112}
                 height={40}
-                className="hidden h-9 w-auto object-contain opacity-95 drop-shadow-sm sm:block sm:ml-auto"
+                className="hidden h-9 w-auto rounded-[5px] object-contain opacity-95 drop-shadow-sm sm:block sm:ml-auto"
               />
             </div>
           </div>
@@ -388,7 +388,7 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                     key={suggestion}
                     type="button"
                     onClick={() => sendMessage(suggestion)}
-                    className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-background/90 to-muted/30 px-4 py-3.5 text-sm text-left shadow-sm transition-all hover:border-primary/35 hover:shadow-md hover:-translate-y-0.5 dark:from-card/80 dark:to-muted/20"
+                    className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card bg-gradient-to-br from-card to-muted/40 px-4 py-3.5 text-sm text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 dark:border-border/60 dark:from-card/80 dark:to-muted/20"
                   >
                     <span className="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-gradient-to-b from-primary to-chart-3 opacity-0 transition-opacity group-hover:opacity-100" />
                     <span className="flex items-start gap-3">
@@ -425,7 +425,7 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                       'max-w-[min(100%,42rem)] rounded-2xl px-4 py-3.5 text-sm shadow-md',
                       isUser
                         ? 'bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground shadow-primary/25 ring-1 ring-white/10'
-                        : 'border border-border/50 bg-gradient-to-b from-background/95 to-muted/25 text-foreground ring-1 ring-border/30 backdrop-blur-sm dark:from-card/90 dark:to-muted/15'
+                        : 'border border-border/70 bg-card bg-gradient-to-b from-card to-muted/35 text-foreground ring-1 ring-border/40 backdrop-blur-sm dark:border-border/50 dark:from-card/90 dark:to-muted/15 dark:ring-border/30'
                     )}
                   >
                     {message.toolCalls && message.toolCalls.length > 0 && (
@@ -490,14 +490,14 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
         )}
         </div>
 
-        <div className="relative border-t border-border/50 bg-gradient-to-t from-muted/30 to-transparent px-4 sm:px-6 py-4">
+        <div className="relative border-t border-border/60 bg-gradient-to-t from-muted/40 to-transparent dark:border-border/50 dark:from-muted/30 px-4 sm:px-6 py-4">
           <form onSubmit={handleSubmit} className="flex gap-2.5 items-end">
             <Input
               placeholder="Ask about boards, items, workflows…"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={isLoading}
-              className="flex-1 h-12 rounded-2xl border-border/60 bg-background/80 px-4 shadow-inner transition-shadow focus-visible:border-primary/40 focus-visible:ring-primary/20 dark:bg-background/50"
+              className="flex-1 h-12 rounded-2xl border-border/70 bg-background px-4 shadow-inner transition-shadow focus-visible:border-primary/40 focus-visible:ring-primary/20 dark:border-border/60 dark:bg-background/50"
             />
             <Button
               type="submit"

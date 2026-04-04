@@ -3,50 +3,47 @@
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/** Decorative “AI core” — layered motion: orbit, counter-orbit, pulse, float. */
+/**
+ * Luna AI mark — calm motion: slow orbit ring, soft halo, light center pulse.
+ * Avoids fast spins / 3D tilt so it reads as a product logo, not a loader.
+ */
 export function LunaAiOrb({ className }: { className?: string }) {
   return (
     <div
       className={cn(
         'relative mx-auto mb-5 flex h-[7.25rem] w-[7.25rem] items-center justify-center',
-        'animate-luna-ai-float',
-        className
+        className,
       )}
       aria-hidden
     >
-      {/* Soft outer glow */}
-      <div className="absolute inset-0 rounded-full bg-primary/15 blur-xl animate-luna-ai-glow" />
+      {/* Ambient halo */}
+      <div className="pointer-events-none absolute inset-[-12%] rounded-full bg-primary/20 blur-2xl animate-luna-ai-halo" />
 
-      {/* Counter-rotating color ring */}
-      <div className="absolute inset-0 animate-luna-ai-spin-reverse rounded-full p-[2px]">
-        <div className="h-full w-full rounded-full bg-[conic-gradient(from_180deg,hsl(var(--primary)),hsl(var(--chart-3)),hsl(var(--accent)),hsl(var(--primary)))] opacity-90" />
-      </div>
+      {/* Single slow gradient ring */}
+      <div
+        className="absolute inset-0 animate-luna-ai-orbit-ring rounded-full"
+        style={{
+          background:
+            'conic-gradient(from 0deg, hsl(var(--primary) / 0.95), hsl(var(--chart-3) / 0.75), hsl(var(--accent) / 0.7), hsl(var(--primary) / 0.95))',
+          maskImage:
+            'radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 3px))',
+          WebkitMaskImage:
+            'radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 3px))',
+        }}
+      />
 
-      {/* Main rotating ring */}
-      <div className="absolute inset-[5px] animate-luna-ai-spin rounded-full p-[2px]">
-        <div className="h-full w-full rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,hsl(var(--primary))_90deg,transparent_180deg,hsl(var(--chart-3))_270deg,transparent_360deg)]" />
-      </div>
+      {/* Quiet inner ring (static) */}
+      <div
+        className="absolute inset-[10px] rounded-full border border-primary/12 bg-background/40 shadow-inner ring-1 ring-border/30 backdrop-blur-[2px]"
+        aria-hidden
+      />
 
-      {/* Inner disc (masks center) */}
-      <div className="absolute inset-[11px] rounded-full bg-background shadow-inner ring-1 ring-border/40" />
-
-      {/* Glowing core */}
-      <div className="absolute inset-[14px] animate-luna-ai-pulse-soft rounded-full bg-gradient-to-br from-primary/35 via-chart-3/25 to-primary/20 shadow-[inset_0_0_24px_hsl(var(--primary)/0.25)]" />
-
-      {/* Orbiting spark dots */}
-      <div className="absolute inset-0 animate-luna-ai-spin">
-        <span className="absolute left-1/2 top-0 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))]" />
-      </div>
-      <div className="absolute inset-0 animate-luna-ai-spin-reverse-mid">
-        <span className="absolute bottom-2 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-chart-3 shadow-[0_0_8px_hsl(var(--chart-3))]" />
-      </div>
-      <div className="absolute inset-0 animate-luna-ai-spin-slow">
-        <span className="absolute right-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_6px_hsl(var(--accent))]" />
-      </div>
-
-      {/* Center icon */}
-      <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-background/80 shadow-md ring-1 ring-primary/20 backdrop-blur-sm">
-        <Sparkles className="h-6 w-6 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.6)]" strokeWidth={1.75} />
+      {/* Core */}
+      <div className="relative z-10 flex h-[3.25rem] w-[3.25rem] items-center justify-center rounded-full bg-background/90 shadow-sm ring-1 ring-primary/20 backdrop-blur-sm animate-luna-ai-core-pulse">
+        <Sparkles
+          className="h-6 w-6 text-primary drop-shadow-[0_0_10px_hsl(var(--primary)/0.45)] animate-luna-ai-sparkle"
+          strokeWidth={1.75}
+        />
       </div>
     </div>
   );
