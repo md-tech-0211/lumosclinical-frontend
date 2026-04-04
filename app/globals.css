@@ -15,25 +15,25 @@ body {
 
 @layer base {
   :root {
-    /* Luna: primary #F9BA37, accent #FBD279, background #FFFFFF, textPrimary #666666 */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 40%;
+    /* Luna: primary #F9BA37, accent #FBD279 — light mode tuned for depth & readability */
+    --background: 40 20% 99%;
+    --foreground: 224 16% 28%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 40%;
+    --card-foreground: 224 16% 28%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 40%;
+    --popover-foreground: 224 16% 28%;
     --primary: 43 94% 60%;
-    --primary-foreground: 0 0% 15%;
-    --secondary: 44 93% 92%;
-    --secondary-foreground: 0 0% 20%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --primary-foreground: 224 20% 14%;
+    --secondary: 44 85% 94%;
+    --secondary-foreground: 224 16% 22%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 42%;
     --accent: 44 93% 72%;
-    --accent-foreground: 0 0% 15%;
+    --accent-foreground: 224 20% 14%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 73%;
-    --input: 0 0% 73%;
+    --border: 220 13% 90%;
+    --input: 220 13% 90%;
     --ring: 43 94% 60%;
     --chart-1: 43 94% 60%;
     --chart-2: 44 93% 72%;
@@ -42,17 +42,16 @@ body {
     --chart-5: 20 70% 55%;
     --radius: 3px;
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 40%;
+    --sidebar-foreground: 224 16% 28%;
     --sidebar-primary: 43 94% 60%;
-    --sidebar-primary-foreground: 0 0% 15%;
-    --sidebar-accent: 44 93% 92%;
-    --sidebar-accent-foreground: 0 0% 20%;
-    --sidebar-border: 0 0% 90%;
+    --sidebar-primary-foreground: 224 20% 14%;
+    --sidebar-accent: 44 85% 94%;
+    --sidebar-accent-foreground: 224 16% 22%;
+    --sidebar-border: 220 13% 90%;
     --sidebar-ring: 43 94% 60%;
-    /* Input styling per branding: white bg, #4E4E4E text, #BBBBBB border, 0 radius, no shadow */
     --input-bg: 0 0% 100%;
-    --input-text: 0 0% 31%;
-    --input-border: 0 0% 73%;
+    --input-text: 224 16% 28%;
+    --input-border: 220 13% 88%;
   }
   .dark {
     --background: 0 0% 7%;
@@ -106,14 +105,9 @@ body {
 .luna-app-bg {
   background-color: hsl(var(--background));
   background-image:
-    radial-gradient(ellipse 100% 60% at 50% -15%, hsl(var(--primary) / 0.14), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 100% 20%, hsl(var(--chart-3) / 0.1), transparent 50%),
-    radial-gradient(ellipse 60% 45% at 0% 90%, hsl(var(--accent) / 0.12), transparent 45%),
-    linear-gradient(
-      180deg,
-      hsl(var(--background)) 0%,
-      hsl(var(--muted) / 0.35) 100%
-    );
+    radial-gradient(ellipse 100% 60% at 50% -15%, hsl(var(--primary) / 0.1), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 20%, hsl(var(--chart-3) / 0.06), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 0% 90%, hsl(var(--accent) / 0.07), transparent 45%);
   background-attachment: fixed;
 }
 
@@ -125,81 +119,64 @@ body {
     linear-gradient(180deg, hsl(var(--background)) 0%, hsl(0 0% 12%) 100%);
 }
 
-/* Luna AI orb — motion (no JS required) */
-@keyframes luna-ai-spin {
+/* Luna AI mark — restrained motion (logo, not a spinner) */
+@keyframes luna-ai-halo {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.04);
+  }
+}
+@keyframes luna-ai-orbit-ring {
   100% {
     transform: rotate(360deg);
   }
 }
-@keyframes luna-ai-spin-reverse {
-  100% {
-    transform: rotate(-360deg);
-  }
-}
-@keyframes luna-ai-float {
+@keyframes luna-ai-core-pulse {
   0%,
   100% {
-    transform: translateY(0);
+    opacity: 0.92;
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
   }
   50% {
-    transform: translateY(-6px);
-  }
-}
-@keyframes luna-ai-pulse-soft {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.85;
-  }
-  50% {
-    transform: scale(1.04);
     opacity: 1;
+    box-shadow: 0 0 20px 0 hsl(var(--primary) / 0.12);
   }
 }
-@keyframes luna-ai-glow {
+@keyframes luna-ai-sparkle {
   0%,
   100% {
-    opacity: 0.35;
-    transform: scale(0.95);
+    opacity: 0.88;
   }
   50% {
-    opacity: 0.55;
-    transform: scale(1.05);
+    opacity: 1;
   }
 }
 
 @layer utilities {
-  .animate-luna-ai-spin {
-    animation: luna-ai-spin 8s linear infinite;
+  .animate-luna-ai-halo {
+    animation: luna-ai-halo 5s ease-in-out infinite;
   }
-  .animate-luna-ai-spin-reverse {
-    animation: luna-ai-spin-reverse 6s linear infinite;
+  .animate-luna-ai-orbit-ring {
+    animation: luna-ai-orbit-ring 24s linear infinite;
   }
-  .animate-luna-ai-float {
-    animation: luna-ai-float 5s ease-in-out infinite;
+  .animate-luna-ai-core-pulse {
+    animation: luna-ai-core-pulse 4s ease-in-out infinite;
   }
-  .animate-luna-ai-pulse-soft {
-    animation: luna-ai-pulse-soft 3.5s ease-in-out infinite;
-  }
-  .animate-luna-ai-glow {
-    animation: luna-ai-glow 4s ease-in-out infinite;
-  }
-  .animate-luna-ai-spin-slow {
-    animation: luna-ai-spin 11s linear infinite;
-  }
-  .animate-luna-ai-spin-reverse-mid {
-    animation: luna-ai-spin-reverse 5s linear infinite;
+  .animate-luna-ai-sparkle {
+    animation: luna-ai-sparkle 3s ease-in-out infinite;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-luna-ai-spin,
-  .animate-luna-ai-spin-reverse,
-  .animate-luna-ai-spin-slow,
-  .animate-luna-ai-spin-reverse-mid,
-  .animate-luna-ai-float,
-  .animate-luna-ai-pulse-soft,
-  .animate-luna-ai-glow {
+  .animate-luna-ai-halo,
+  .animate-luna-ai-orbit-ring,
+  .animate-luna-ai-core-pulse,
+  .animate-luna-ai-sparkle {
     animation: none !important;
   }
 }
