@@ -46,7 +46,8 @@ export default function RootLayout({
                         alt="Luna Clinical"
                         width={96}
                         height={32}
-                        className="relative h-8 w-auto rounded-[5px] object-contain drop-shadow-sm"
+                        className="relative rounded-[5px] object-contain drop-shadow-sm"
+                        style={{ width: 'auto', height: '2rem' }}
                         priority
                       />
                     </span>

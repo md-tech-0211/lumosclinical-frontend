@@ -7,6 +7,13 @@ export const runtime = "nodejs";
 /** Vercel: allow long Bedrock + MCP streams (Hobby plan max 10s unless upgraded). */
 export const maxDuration = 60;
 
+/**
+ * Used when `BEDROCK_MODEL_ID` is missing or blank in the environment.
+ * Claude Sonnet 4.5 on Amazon Bedrock — stronger than Haiku for tools + long answers.
+ * Enable it in Bedrock → Model access; override with `BEDROCK_MODEL_ID` if needed.
+ */
+const DEFAULT_BEDROCK_MODEL_ID = "anthropic.claude-sonnet-4-5-20250929-v1:0";
+
 function jsonError(
   status: number,
   error: string,
@@ -168,8 +175,8 @@ export async function POST(req: Request) {
     });
 
     const modelId =
-      process.env.BEDROCK_MODEL_ID ??
-      "anthropic.claude-3-haiku-20240307-v1:0";
+      process.env.BEDROCK_MODEL_ID?.trim() || DEFAULT_BEDROCK_MODEL_ID;
+    console.log("[monday] Bedrock model:", modelId);
 
     const system = buildSystemPrompt(
       mcpAvailable,
