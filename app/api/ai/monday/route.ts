@@ -114,6 +114,15 @@ export async function POST(req: Request) {
 
     console.log("[monday] MCP URL:", mcpUrl);
 
+    if (
+      process.env.NODE_ENV === "development" &&
+      /^https:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(mcpUrl)
+    ) {
+      console.warn(
+        "[monday] MONDAY_MCP_URL uses https on localhost — TLS often fails in Node (self-signed). Use http://localhost:PORT/api/mcp unless your MCP serves a trusted certificate."
+      );
+    }
+
     let tools: ToolSet = {};
     let mcpAvailable = false;
 

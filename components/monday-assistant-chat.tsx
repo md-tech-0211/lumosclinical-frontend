@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { Send, Bot, User, AlertCircle, Sparkles, Wand2 } from 'lucide-react';
+import { Send, Bot, User, AlertCircle, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AssistantMarkdown } from '@/components/assistant-markdown';
 import { LunaAiOrb } from '@/components/luna-ai-orb';
@@ -59,12 +59,11 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  /** Only scroll when the user sends a message — not on every assistant stream chunk (avoids jank / “shaking” near the input). */
   useEffect(() => {
-    scrollToBottom();
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== 'user') return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
   }, [messages]);
 
   useEffect(() => {
@@ -325,49 +324,22 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
         <div className="relative flex flex-col overflow-hidden rounded-[calc(1.75rem-1px)] border border-border/80 bg-card shadow-sm backdrop-blur-xl dark:border-border/40 dark:bg-card/55 dark:shadow-none min-h-[70vh]">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.06),transparent_55%)] dark:bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.08),transparent_55%)] pointer-events-none" />
           <div className="relative border-b border-border/60 bg-gradient-to-r from-muted/50 via-muted/20 to-transparent dark:border-border/50 dark:from-muted/30 dark:via-transparent dark:to-muted/20 px-4 sm:px-6 py-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start justify-between gap-4 sm:justify-start sm:flex-1 sm:items-center">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="relative shrink-0">
-                    <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-br from-primary/50 to-chart-3/40 opacity-70 blur-[10px]" />
-                    <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-chart-3/15 ring-1 ring-primary/25 shadow-inner">
-                      <Bot className="h-5 w-5 text-primary drop-shadow-sm" />
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-semibold leading-tight tracking-tight text-foreground">
-                        Monday AI Assistant
-                      </h2>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                        <Sparkles className="h-3 w-3" />
-                        Bedrock
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      Boards, items, updates & workflows — ask in plain language.
-                    </p>
-                  </div>
-                </div>
-                <Image
-                  src="/assets/logo/lo.jpeg"
-                  alt="Luna"
-                  width={112}
-                  height={40}
-                  className="h-9 w-auto rounded-[5px] object-contain opacity-95 drop-shadow-sm sm:hidden"
-                />
-              </div>
+            <div className="flex items-center gap-3">
               <Image
                 src="/assets/logo/lo.jpeg"
                 alt="Luna"
                 width={112}
                 height={40}
-                className="hidden h-9 w-auto rounded-[5px] object-contain opacity-95 drop-shadow-sm sm:block sm:ml-auto"
+                className="h-9 w-auto rounded-[5px] object-contain opacity-95 drop-shadow-sm"
+                priority
               />
+              <span className="text-base font-semibold tracking-tight text-foreground">
+                AI Assistant
+              </span>
             </div>
           </div>
 
-        <div className="relative flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5 scroll-smooth [scrollbar-gutter:stable]">
+        <div className="relative flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5 [scrollbar-gutter:stable]">
         {messages.length === 0 ? (
           <div className="flex min-h-[min(52vh,520px)] items-center justify-center py-8">
             <div className="max-w-lg text-center">
