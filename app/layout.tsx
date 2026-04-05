@@ -37,7 +37,7 @@ export default function RootLayout({
                 <div className="flex h-[3.25rem] items-center justify-between gap-3">
                   <Link
                     href="/"
-                    className="group flex items-center gap-3 rounded-xl py-1 pr-2 transition-opacity hover:opacity-90"
+                    className="group flex items-center rounded-xl py-1 pr-2 transition-opacity hover:opacity-90"
                   >
                     <span className="relative">
                       <span className="absolute -inset-1 rounded-lg bg-gradient-to-br from-primary/25 to-chart-3/20 opacity-0 blur-md transition-opacity group-hover:opacity-100" />
@@ -49,9 +49,6 @@ export default function RootLayout({
                         className="relative h-8 w-auto rounded-[5px] object-contain drop-shadow-sm"
                         priority
                       />
-                    </span>
-                    <span className="hidden text-sm font-semibold tracking-tight text-foreground sm:inline">
-                      Luna Clinical
                     </span>
                   </Link>
                   <div className="flex items-center gap-1">

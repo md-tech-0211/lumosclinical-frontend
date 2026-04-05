@@ -1,5 +1,10 @@
-const url = 'http://54.91.147.151:8000/api/v1/deals/?page=1&per_page=100&sort_by=Modified_Time&sort_order=desc';
+const BASE = (process.env.BACKEND_API_BASE || 'http://54.91.147.151:8000/api/v1').replace(
+  /\/+$/,
+  ''
+);
+const url = `${BASE}/deals/?page=1&per_page=100&sort_by=Modified_Time&sort_order=desc`;
 
+console.log('BACKEND_API_BASE:', BASE);
 console.log('Fetching:', url);
 
 const response = await fetch(url, {

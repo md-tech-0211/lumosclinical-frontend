@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendApiBase } from '@/lib/server/backend-api-base';
 
-const EXTERNAL_API_BASE = 'http://54.91.147.151:8000/api/v1';
+const EXTERNAL_API_BASE = getBackendApiBase();
 
 export async function POST(
   request: NextRequest,
