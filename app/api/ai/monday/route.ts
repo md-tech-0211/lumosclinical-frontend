@@ -10,9 +10,13 @@ export const maxDuration = 60;
 /**
  * Used when `BEDROCK_MODEL_ID` is missing or blank in the environment.
  * Claude Sonnet 4.5 on Amazon Bedrock — stronger than Haiku for tools + long answers.
- * Enable it in Bedrock → Model access; override with `BEDROCK_MODEL_ID` if needed.
+ * Newer Claude models must be invoked via a Bedrock **inference profile** ID (not the
+ * raw foundation model ID), or Bedrock returns "on-demand throughput isn't supported".
+ * `us.*` is for US commercial regions; use `eu.*`, `ap.*`, etc. per AWS docs for your region.
+ * Override with `BEDROCK_MODEL_ID` if needed (including a full inference profile ARN).
  */
-const DEFAULT_BEDROCK_MODEL_ID = "anthropic.claude-sonnet-4-5-20250929-v1:0";
+const DEFAULT_BEDROCK_MODEL_ID =
+  "us.anthropic.claude-sonnet-4-5-20250929-v1:0";
 
 function jsonError(
   status: number,
