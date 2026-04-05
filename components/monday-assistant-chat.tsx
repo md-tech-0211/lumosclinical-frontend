@@ -330,7 +330,8 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                 alt="Luna"
                 width={112}
                 height={40}
-                className="h-9 w-auto rounded-[5px] object-contain opacity-95 drop-shadow-sm"
+                className="rounded-[5px] object-contain opacity-95 drop-shadow-sm"
+                style={{ width: 'auto', height: '2.25rem' }}
                 priority
               />
               <span className="text-base font-semibold tracking-tight text-foreground">
