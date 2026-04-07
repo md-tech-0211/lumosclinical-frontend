@@ -13,15 +13,17 @@ function HomeChat() {
 
 export default function Page() {
   return (
-    <div className="min-h-[calc(100vh-7.5rem)] flex flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       <Suspense
         fallback={
-          <div className="min-h-[50vh] flex items-center justify-center text-sm text-muted-foreground">
+          <div className="flex min-h-[50vh] flex-1 items-center justify-center text-sm text-muted-foreground">
             Loading…
           </div>
         }
       >
-        <HomeChat />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <HomeChat />
+        </div>
       </Suspense>
     </div>
   );

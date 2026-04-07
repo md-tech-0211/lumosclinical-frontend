@@ -3,6 +3,7 @@ import { Poppins } from 'next/font/google'
 import Image from 'next/image'
 import Link from 'next/link'
 import { NavNewChatLink } from '@/components/nav-new-chat-link'
+import { SidebarRecentChats } from '@/components/sidebar-recent-chats'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ThemeToggle } from '@/components/theme-toggle'
 
@@ -27,13 +28,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={poppins.variable} suppressHydrationWarning>
-      <body className="font-sans min-h-screen bg-background text-foreground luna-app-bg">
+    <html lang="en" className={`${poppins.variable} h-full overflow-hidden`} suppressHydrationWarning>
+      <body className="font-sans h-full min-h-0 overflow-hidden bg-background text-foreground luna-app-bg">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <div className="min-h-screen flex flex-col">
-            <header className="sticky top-0 z-50 border-b border-border/60 bg-background/90 backdrop-blur-xl dark:border-border/40 dark:bg-card/30 dark:supports-[backdrop-filter]:bg-card/20 supports-[backdrop-filter]:bg-background/80">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <header className="z-50 shrink-0 border-b border-border/50 bg-white/80 shadow-[0_1px_0_0_hsl(var(--border)/0.5)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 dark:border-border/40 dark:bg-card/30 dark:shadow-none dark:supports-[backdrop-filter]:bg-card/20">
               <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent" />
-              <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+              <div className="w-full px-0 sm:px-4">
                 <div className="flex h-[3.25rem] items-center justify-between gap-3">
                   <Link
                     href="/"
@@ -51,25 +52,36 @@ export default function RootLayout({
                         priority
                       />
                     </span>
+                    <span className="ml-3 text-sm font-semibold tracking-tight text-foreground">
+                      AI Assistant
+                    </span>
                   </Link>
                   <div className="flex items-center gap-1">
                     <ThemeToggle />
-                    <nav className="flex items-center gap-1.5 rounded-full border border-border/70 bg-card p-1 text-sm shadow-sm backdrop-blur-sm dark:border-border/50 dark:bg-background/30">
-                      <NavNewChatLink className="!rounded-full !px-3 !py-1.5 hover:bg-muted/80" />
-                      <Link
-                        href="/chats"
-                        className="rounded-full px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-                      >
-                        Previous chat
-                      </Link>
-                    </nav>
                   </div>
                 </div>
               </div>
             </header>
-            <main className="flex-1">
-              <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 sm:py-8">
-                {children}
+            <main className="min-h-0 flex-1 overflow-hidden">
+              <div className="flex h-full min-h-0 flex-col px-0 py-4 sm:px-4 sm:py-6">
+                <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+                  <aside className="hidden min-h-0 w-64 shrink-0 flex-col overflow-hidden md:flex">
+                    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-card via-card to-secondary/30 shadow-[0_8px_30px_-8px_hsl(var(--primary)/0.12),0_0_0_1px_hsl(var(--border)/0.35)] backdrop-blur-md dark:border-border/50 dark:bg-card/25 dark:[background-image:none] dark:shadow-none dark:backdrop-blur-sm">
+                      <div className="shrink-0 space-y-1 p-2">
+                        <NavNewChatLink className="!w-full !justify-start !rounded-xl !px-3 !py-2 hover:bg-muted/80" />
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2 [scrollbar-gutter:stable]">
+                        <p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Recent
+                        </p>
+                        <SidebarRecentChats />
+                      </div>
+                    </div>
+                  </aside>
+                  <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                    {children}
+                  </section>
+                </div>
               </div>
             </main>
           </div>

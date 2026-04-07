@@ -2,6 +2,8 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  /** Shown in the UI when the user attached PDFs (not sent verbatim to the model beyond the API request). */
+  attachments?: Array<{ name: string }>
   toolCalls?: Array<{ name: string; status: 'pending' | 'done' }>
 }
 
@@ -26,9 +28,15 @@ function readAll(): ChatSession[] {
   }
 }
 
+function notifySessionsChanged(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('luna-chat-sessions-changed'))
+}
+
 function writeAll(sessions: ChatSession[]): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+  notifySessionsChanged()
 }
 
 export function listSessions(): ChatSession[] {

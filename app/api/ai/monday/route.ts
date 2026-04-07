@@ -1,7 +1,8 @@
 import { createMCPClient } from "@ai-sdk/mcp";
+import { Buffer } from "node:buffer";
 import { streamText, stepCountIs } from "ai";
 import { bedrock } from "@ai-sdk/amazon-bedrock";
-import type { ToolSet } from "ai";
+import type { ModelMessage, ToolSet } from "ai";
 
 export const runtime = "nodejs";
 /** Vercel: allow long Bedrock + MCP streams (Hobby plan max 10s unless upgraded). */
@@ -39,6 +40,113 @@ function sanitizeErrorForClient(raw: string): string {
     return `${t.slice(0, 400)}…`;
   }
   return t;
+}
+
+const MAX_PDF_ATTACHMENTS = 5;
+const MAX_PDF_BYTES = 12 * 1024 * 1024;
+
+type PdfAttachmentInput = {
+  name: string;
+  mimeType: string;
+  data: string;
+};
+
+function parsePdfAttachments(raw: unknown): PdfAttachmentInput[] | Response {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    return jsonError(400, "attachments must be an array when provided.");
+  }
+  if (raw.length > MAX_PDF_ATTACHMENTS) {
+    return jsonError(
+      400,
+      `Too many PDF attachments (max ${MAX_PDF_ATTACHMENTS}).`
+    );
+  }
+
+  const out: PdfAttachmentInput[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      return jsonError(400, "Invalid attachment entry.");
+    }
+    const name = (item as { name?: unknown }).name;
+    const mimeType = (item as { mimeType?: unknown }).mimeType;
+    const data = (item as { data?: unknown }).data;
+    if (typeof name !== "string" || !name.trim()) {
+      return jsonError(400, "Each attachment must include a name.");
+    }
+    if (typeof mimeType !== "string" || !mimeType.trim()) {
+      return jsonError(400, "Each attachment must include a mimeType.");
+    }
+    if (mimeType !== "application/pdf") {
+      return jsonError(400, "Only PDF attachments are supported right now.");
+    }
+    if (typeof data !== "string" || !data.trim()) {
+      return jsonError(400, "Each attachment must include base64 data.");
+    }
+
+    let buf: Buffer;
+    try {
+      buf = Buffer.from(data, "base64");
+    } catch {
+      return jsonError(400, "Invalid base64 data for an attachment.");
+    }
+    if (buf.length === 0) {
+      return jsonError(400, "Attachment data was empty.");
+    }
+    if (buf.length > MAX_PDF_BYTES) {
+      return jsonError(
+        400,
+        `Attachment "${name}" is too large (max ${Math.floor(
+          MAX_PDF_BYTES / (1024 * 1024)
+        )}MB).`
+      );
+    }
+
+    out.push({ name: name.trim(), mimeType: mimeType.trim(), data });
+  }
+
+  return out;
+}
+
+function applyPdfAttachmentsToMessages(
+  messages: ModelMessage[],
+  attachments: PdfAttachmentInput[]
+): ModelMessage[] {
+  if (attachments.length === 0) return messages;
+
+  const next = [...messages];
+  const last = next[next.length - 1];
+  if (!last || last.role !== "user") {
+    return messages;
+  }
+
+  let text = "";
+  if (typeof last.content === "string") {
+    text = last.content;
+  } else if (Array.isArray(last.content)) {
+    const parts = last.content as Array<{ type?: unknown; text?: unknown }>;
+    text = parts
+      .filter((p) => p && p.type === "text" && typeof p.text === "string")
+      .map((p) => p.text as string)
+      .join("\n");
+  }
+
+  const content: Array<
+    | { type: "text"; text: string }
+    | { type: "file"; data: Buffer; mediaType: string; filename?: string }
+  > = [{ type: "text", text: text.trim() ? text : " " }];
+
+  for (const a of attachments) {
+    content.push({
+      type: "file",
+      data: Buffer.from(a.data, "base64"),
+      mediaType: a.mimeType,
+      filename: a.name,
+    });
+  }
+
+  next[next.length - 1] = { role: "user", content };
+  return next;
 }
 
 function buildSystemPrompt(
@@ -88,6 +196,12 @@ export async function POST(req: Request) {
     const messages = (body as { messages?: unknown }).messages;
     if (!Array.isArray(messages)) {
       return jsonError(400, "Request must include a messages array.");
+    }
+
+    const attachmentsRaw = (body as { attachments?: unknown }).attachments;
+    const parsedAttachments = parsePdfAttachments(attachmentsRaw);
+    if (parsedAttachments instanceof Response) {
+      return parsedAttachments;
     }
 
     const mcpUrl = process.env.MONDAY_MCP_URL?.trim();
@@ -190,9 +304,14 @@ export async function POST(req: Request) {
       currentTime
     );
 
+    const modelMessages = applyPdfAttachmentsToMessages(
+      messages as ModelMessage[],
+      parsedAttachments
+    );
+
     const result = streamText({
       model: bedrock(modelId),
-      messages,
+      messages: modelMessages,
       tools,
       stopWhen: stepCountIs(20),
       system,
