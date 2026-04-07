@@ -57,7 +57,7 @@ function getAvatarColor(leadDetail: LeadDetailResponse): string {
     'bg-primary text-primary-foreground',
     'bg-green-500 text-white',
     'bg-blue-500 text-white',
-    'bg-amber-500 text-white',
+    'bg-slate-500 text-white',
     'bg-rose-500 text-white',
     'bg-purple-500 text-white',
     'bg-accent text-primary-foreground',
@@ -70,7 +70,7 @@ function getAvatarColor(leadDetail: LeadDetailResponse): string {
 function getFitScoreColor(score?: number): string {
   if (!score) return 'bg-muted text-muted-foreground';
   if (score >= 8) return 'bg-green-100 text-green-700';
-  if (score >= 6) return 'bg-amber-100 text-amber-700';
+  if (score >= 6) return 'bg-slate-200 text-slate-700';
   return 'bg-red-100 text-red-700';
 }
 
@@ -321,7 +321,7 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
                       </Badge>
                     )}
                     {analysis.raise_stage && (
-                      <Badge variant="outline" className="gap-1.5 px-3 py-1 border-amber-200 bg-amber-50 text-amber-700">
+                      <Badge variant="outline" className="gap-1.5 px-3 py-1 border-slate-200 bg-slate-50 text-slate-700">
                         <span className="text-xs font-medium">Stage:</span>
                         <span className="font-semibold">{analysis.raise_stage}</span>
                       </Badge>
@@ -420,7 +420,7 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
                               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-4 mt-6">
                                 ACTION ITEMS
                               </p>
-                              <div className="bg-amber-50/50 rounded-lg p-4 prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
+                              <div className="bg-slate-50/80 rounded-lg p-4 prose prose-sm max-w-none prose-headings:font-semibold prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
                                 <ReactMarkdown>{meeting.action_items}</ReactMarkdown>
                               </div>
                             </>
@@ -602,7 +602,7 @@ export function LeadDetails({ leadDetail, onReevaluate, isReevaluating }: LeadDe
                     <p className={cn(
                       'text-sm font-semibold',
                       analysis.fit_score >= 8 ? 'text-green-700' :
-                      analysis.fit_score >= 6 ? 'text-amber-700' : 'text-red-700'
+                      analysis.fit_score >= 6 ? 'text-slate-700' : 'text-red-700'
                     )}>
                       {getFitScoreLabel(analysis.fit_score)}
                     </p>

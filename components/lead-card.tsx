@@ -29,7 +29,7 @@ function getAvatarColor(lead: Lead): string {
     'bg-primary/15 text-primary',
     'bg-green-100 text-green-700',
     'bg-blue-100 text-blue-700',
-    'bg-amber-100 text-amber-700',
+    'bg-slate-200 text-slate-700',
     'bg-rose-100 text-rose-700',
   ];
   const hash = (lead.id || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);

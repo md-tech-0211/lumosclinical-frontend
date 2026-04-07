@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { MessageSquare, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -39,7 +39,7 @@ export default function ChatsPage() {
     <div className="mx-auto h-full min-h-0 max-w-2xl space-y-8 overflow-y-auto [scrollbar-gutter:stable]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <h1 className="bg-gradient-to-r from-slate-800 via-sky-800 to-violet-800 bg-clip-text text-2xl font-semibold tracking-tight text-transparent dark:from-foreground dark:via-foreground dark:to-foreground/75">
             Previous chats
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -48,15 +48,16 @@ export default function ChatsPage() {
         </div>
         <Button
           type="button"
-          className="rounded-2xl w-fit bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-md shadow-primary/20 hover:opacity-95"
+          className="rounded-2xl w-fit gap-2 bg-gradient-to-br from-primary via-sky-500 to-violet-600 text-primary-foreground shadow-lg shadow-sky-500/25 transition hover:opacity-95 dark:via-primary/95 dark:to-primary/85 dark:shadow-primary/20"
           onClick={() => router.push(`/?new=${Date.now()}`)}
         >
+          <Plus className="h-4 w-4 shrink-0" aria-hidden />
           New chat
         </Button>
       </div>
 
       {sessions.length === 0 ? (
-        <Card className="rounded-2xl border-dashed border-border/60 bg-card/50 backdrop-blur-sm">
+        <Card className="rounded-2xl border-dashed border-sky-200/60 bg-white/50 backdrop-blur-md dark:border-border/60 dark:bg-card/50">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-muted-foreground" />
