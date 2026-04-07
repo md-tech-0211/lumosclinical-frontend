@@ -124,7 +124,7 @@ function ChatComposer({
             type="button"
             variant="ghost"
             size="icon"
-            className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-neutral-700 hover:bg-primary/10 hover:text-neutral-950 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+            className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
             disabled={isLoading}
             onClick={onPickPdf}
             aria-label="Add PDF"
@@ -138,7 +138,7 @@ function ChatComposer({
               variant="ghost"
               size="icon"
               onClick={onStop}
-              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-neutral-700 hover:bg-muted/70 hover:text-neutral-950 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-muted/70 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
               aria-label="Stop generating"
             >
               <Square className="h-5 w-5" />
@@ -149,7 +149,7 @@ function ChatComposer({
               variant="ghost"
               size="icon"
               disabled={!canSend}
-              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-neutral-700 hover:bg-primary/10 hover:text-neutral-950 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
               aria-label="Send message"
             >
               <Send className="h-5 w-5" />
@@ -161,7 +161,7 @@ function ChatComposer({
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             disabled={isLoading}
-            className="h-12 w-full rounded-2xl border-border/70 bg-white pl-14 pr-14 text-neutral-950 shadow-inner transition-shadow placeholder:text-neutral-500 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/25 dark:border-border/60 dark:bg-background/50 dark:text-foreground dark:placeholder:text-muted-foreground"
+            className="h-12 w-full rounded-2xl border-sky-200/50 bg-white/90 pl-14 pr-14 text-slate-900 shadow-[inset_0_1px_2px_hsl(0_0%_0%/0.04)] backdrop-blur-sm transition-shadow placeholder:text-slate-500 focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-border/60 dark:bg-background/50 dark:text-foreground dark:placeholder:text-muted-foreground"
           />
         </div>
       </form>
@@ -524,21 +524,18 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
-      <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-primary/35 via-chart-3/18 to-accent/28 p-[1px] shadow-[0_20px_56px_-16px_hsl(var(--primary)/0.22),0_0_0_1px_hsl(var(--border)/0.35)] dark:from-primary/45 dark:via-chart-3/25 dark:to-accent/35 dark:shadow-[0_28px_80px_-24px_rgba(0,0,0,0.55)]">
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[calc(1.75rem-1px)] border border-border/70 bg-gradient-to-b from-card via-card to-secondary/25 shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.65)] backdrop-blur-xl dark:border-border/40 dark:bg-card/55 dark:[background-image:none] dark:shadow-none">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.1),transparent_55%)] dark:bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.08),transparent_55%)] pointer-events-none" />
+      <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-primary/28 via-sky-400/12 to-violet-400/22 p-[1px] shadow-[0_24px_64px_-20px_hsl(221_83%_53%/0.2),0_0_0_1px_hsl(var(--border)/0.3)] dark:from-primary/45 dark:via-chart-3/25 dark:to-accent/35 dark:shadow-[0_28px_80px_-24px_rgba(0,0,0,0.55)]">
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[calc(1.75rem-1px)] border border-sky-100/60 bg-gradient-to-b from-white/95 via-card to-slate-50/90 shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.85)] backdrop-blur-xl dark:border-border/70 dark:from-card dark:via-card dark:to-secondary/25 dark:bg-card/55 dark:[background-image:none] dark:shadow-none">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_55%_at_50%_-25%,hsl(var(--primary)/0.14),transparent_58%),radial-gradient(ellipse_60%_40%_at_100%_0%,hsl(var(--chart-4)/0.08),transparent_50%)] dark:bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.08),transparent_55%)] pointer-events-none" />
 
         <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 [scrollbar-gutter:stable]">
         {messages.length === 0 ? (
           <div className="flex min-h-[min(52vh,520px)] items-start justify-center py-2">
             <div className="w-full max-w-lg text-center">
               <LunaAiOrb />
-              <h3 className="mb-2 bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-800 bg-clip-text font-semibold text-xl tracking-tight text-transparent dark:from-foreground dark:via-foreground dark:to-primary/80">
+              <h3 className="mb-8 bg-gradient-to-r from-slate-900 via-sky-800 to-violet-800 bg-clip-text text-xl font-semibold tracking-tight text-transparent dark:bg-none dark:text-foreground">
                 Luna AI Assistant
               </h3>
-              <p className="mx-auto mb-8 max-w-sm text-sm leading-relaxed text-neutral-700 dark:text-muted-foreground">
-                Your copilot for Monday.com — pick a starter or type your own question.
-              </p>
               <div className="mb-6 text-left">
                 <ChatComposer
                   isLoading={isLoading}
