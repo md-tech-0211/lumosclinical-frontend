@@ -1,11 +1,20 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { Send, Bot, User, AlertCircle, Wand2 } from 'lucide-react';
+import {
+  Send,
+  Bot,
+  User,
+  AlertCircle,
+  Wand2,
+  Square,
+  Plus,
+  FileText,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AssistantMarkdown } from '@/components/assistant-markdown';
 import { LunaAiOrb } from '@/components/luna-ai-orb';
@@ -22,8 +31,143 @@ import {
 
 const REQUEST_TIMEOUT_MS = 120_000;
 
+const MAX_PDF_FILES = 5;
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
+
 const EMPTY_REPLY_FALLBACK =
   "I couldn’t get a reply from the AI (the response was empty). Please try again in a moment.";
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const r = reader.result;
+      if (typeof r !== 'string') {
+        reject(new Error('Could not read file'));
+        return;
+      }
+      const comma = r.indexOf(',');
+      resolve(comma >= 0 ? r.slice(comma + 1) : r);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+type PdfPick = { id: string; file: File };
+
+function ChatComposer({
+  isLoading,
+  input,
+  onInputChange,
+  onSubmit,
+  onStop,
+  pdfItems,
+  onPickPdf,
+  onPdfInputChange,
+  onRemovePdf,
+  pdfInputRef,
+}: {
+  isLoading: boolean;
+  input: string;
+  onInputChange: (value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  onStop: () => void;
+  pdfItems: PdfPick[];
+  onPickPdf: () => void;
+  onPdfInputChange: (files: FileList | null) => void;
+  onRemovePdf: (id: string) => void;
+  pdfInputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const canSend = input.trim().length > 0 || pdfItems.length > 0;
+
+  return (
+    <div className="space-y-2">
+      {pdfItems.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {pdfItems.map((p) => (
+            <span
+              key={p.id}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs text-foreground/90 dark:border-border/50 dark:bg-muted/20"
+            >
+              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="max-w-[220px] truncate">{p.file.name}</span>
+              <button
+                type="button"
+                className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
+                onClick={() => onRemovePdf(p.id)}
+                aria-label={`Remove ${p.file.name}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={onSubmit} className="flex items-end">
+        <input
+          ref={pdfInputRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            onPdfInputChange(e.target.files);
+            e.target.value = '';
+          }}
+        />
+
+        <div className="relative flex-1">
+          {/* Buttons must sit above the full-width input in the stacking order, or the input steals clicks */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-neutral-700 hover:bg-primary/10 hover:text-neutral-950 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+            disabled={isLoading}
+            onClick={onPickPdf}
+            aria-label="Add PDF"
+          >
+            <Plus className="h-5 w-5" />
+          </Button>
+
+          {isLoading ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onStop}
+              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-neutral-700 hover:bg-muted/70 hover:text-neutral-950 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+              aria-label="Stop generating"
+            >
+              <Square className="h-5 w-5" />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              variant="ghost"
+              size="icon"
+              disabled={!canSend}
+              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-neutral-700 hover:bg-primary/10 hover:text-neutral-950 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+              aria-label="Send message"
+            >
+              <Send className="h-5 w-5" />
+            </Button>
+          )}
+
+          <Input
+            placeholder="Ask about boards, items, workflows…"
+            value={input}
+            onChange={(e) => onInputChange(e.target.value)}
+            disabled={isLoading}
+            className="h-12 w-full rounded-2xl border-border/70 bg-white pl-14 pr-14 text-neutral-950 shadow-inner transition-shadow placeholder:text-neutral-500 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/25 dark:border-border/60 dark:bg-background/50 dark:text-foreground dark:placeholder:text-muted-foreground"
+          />
+        </div>
+      </form>
+    </div>
+  );
+}
 
 function friendlyErrorMessage(err: unknown): string {
   if (err instanceof Error) {
@@ -52,12 +196,14 @@ export type MondayAssistantChatProps = {
 
 export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatProps) {
   const [input, setInput] = useState('');
+  const [pdfItems, setPdfItems] = useState<PdfPick[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   /** Only scroll when the user sends a message — not on every assistant stream chunk (avoids jank / “shaking” near the input). */
   useEffect(() => {
@@ -89,8 +235,39 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     });
   }, [sessionId, messages]);
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return;
+  const addPdfFiles = useCallback((files: FileList | null) => {
+    if (!files?.length) return;
+    setError(null);
+    let err: string | null = null;
+    setPdfItems((prev) => {
+      const next = [...prev];
+      for (const f of Array.from(files)) {
+        const isPdf =
+          f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
+        if (!isPdf) {
+          err = 'Only PDF files are supported.';
+          continue;
+        }
+        if (f.size > MAX_PDF_BYTES) {
+          err = `"${f.name}" is too large (max ${Math.floor(MAX_PDF_BYTES / (1024 * 1024))}MB).`;
+          continue;
+        }
+        if (next.length >= MAX_PDF_FILES) {
+          err = `You can attach up to ${MAX_PDF_FILES} PDFs.`;
+          break;
+        }
+        next.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, file: f });
+      }
+      return next;
+    });
+    if (err) setError(err);
+  }, []);
+
+  const sendMessage = useCallback(async (text: string, pdfs: File[] = []) => {
+    const trimmed = text.trim();
+    if ((!trimmed && pdfs.length === 0) || isLoading) return;
+
+    const displayText = trimmed || (pdfs.length ? 'Use the attached PDF(s).' : '');
 
     const activeSessionId = sessionId ?? crypto.randomUUID();
     if (!sessionId) {
@@ -100,7 +277,9 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: text.trim(),
+      content: displayText,
+      attachments:
+        pdfs.length > 0 ? pdfs.map((f) => ({ name: f.name })) : undefined,
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -111,6 +290,19 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
       role: m.role,
       content: m.content,
     }));
+
+    let attachmentsPayload:
+      | Array<{ name: string; mimeType: string; data: string }>
+      | undefined;
+    if (pdfs.length > 0) {
+      attachmentsPayload = await Promise.all(
+        pdfs.map(async (file) => ({
+          name: file.name,
+          mimeType: file.type || 'application/pdf',
+          data: await fileToBase64(file),
+        }))
+      );
+    }
 
     console.log('[monday] Chat sending messages to /api/ai/monday', {
       count: apiMessages.length,
@@ -131,7 +323,10 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
       const response = await fetch('/api/ai/monday', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({
+          messages: apiMessages,
+          ...(attachmentsPayload?.length ? { attachments: attachmentsPayload } : {}),
+        }),
         signal: abortRef.current.signal,
       });
 
@@ -260,8 +455,8 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
       updateMessage(finalText, toolCalls);
     } catch (err: any) {
-      console.error('[monday] Chat error:', err);
-
+      // "Stop" is an expected path. Avoid surfacing it as a console error
+      // (Next dev overlay treats console errors as visible issues).
       if (err?.name === "AbortError") {
         const timeoutMsg =
           "The request timed out waiting for the AI. Please try again.";
@@ -284,6 +479,8 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
         }
         return;
       }
+
+      console.error('[monday] Chat error:', err);
 
       const msg = friendlyErrorMessage(err);
       if (streamAssistantId) {
@@ -312,71 +509,57 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (isLoading) return;
+    const files = pdfItems.map((p) => p.file);
+    if (!input.trim() && files.length === 0) return;
     const text = input;
     setInput('');
-    sendMessage(text);
+    setPdfItems([]);
+    void sendMessage(text, files);
+  };
+
+  const handleStop = () => {
+    abortRef.current?.abort();
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="relative p-[1px] rounded-[1.75rem] bg-gradient-to-br from-primary/30 via-chart-3/15 to-accent/22 dark:from-primary/45 dark:via-chart-3/25 dark:to-accent/35 shadow-[0_20px_50px_-12px_rgb(15_23_42/0.06),0_0_0_1px_hsl(var(--border)/0.45)] dark:shadow-[0_28px_80px_-24px_rgba(0,0,0,0.55)]">
-        <div className="relative flex flex-col overflow-hidden rounded-[calc(1.75rem-1px)] border border-border/80 bg-card shadow-sm backdrop-blur-xl dark:border-border/40 dark:bg-card/55 dark:shadow-none min-h-[70vh]">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.06),transparent_55%)] dark:bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.08),transparent_55%)] pointer-events-none" />
-          <div className="relative border-b border-border/60 bg-gradient-to-r from-muted/50 via-muted/20 to-transparent dark:border-border/50 dark:from-muted/30 dark:via-transparent dark:to-muted/20 px-4 sm:px-6 py-4">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/assets/logo/lo.jpeg"
-                alt="Luna"
-                width={112}
-                height={40}
-                className="rounded-[5px] object-contain opacity-95 drop-shadow-sm"
-                style={{ width: 'auto', height: '2.25rem' }}
-                priority
-              />
-              <span className="text-base font-semibold tracking-tight text-foreground">
-                AI Assistant
-              </span>
-            </div>
-          </div>
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-primary/35 via-chart-3/18 to-accent/28 p-[1px] shadow-[0_20px_56px_-16px_hsl(var(--primary)/0.22),0_0_0_1px_hsl(var(--border)/0.35)] dark:from-primary/45 dark:via-chart-3/25 dark:to-accent/35 dark:shadow-[0_28px_80px_-24px_rgba(0,0,0,0.55)]">
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[calc(1.75rem-1px)] border border-border/70 bg-gradient-to-b from-card via-card to-secondary/25 shadow-[inset_0_1px_0_0_hsl(0_0%_100%/0.65)] backdrop-blur-xl dark:border-border/40 dark:bg-card/55 dark:[background-image:none] dark:shadow-none">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.1),transparent_55%)] dark:bg-[radial-gradient(ellipse_90%_50%_at_50%_-30%,hsl(var(--primary)/0.08),transparent_55%)] pointer-events-none" />
 
-        <div className="relative flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-5 [scrollbar-gutter:stable]">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 [scrollbar-gutter:stable]">
         {messages.length === 0 ? (
-          <div className="flex min-h-[min(52vh,520px)] items-center justify-center py-8">
-            <div className="max-w-lg text-center">
+          <div className="flex min-h-[min(52vh,520px)] items-start justify-center py-2">
+            <div className="w-full max-w-lg text-center">
               <LunaAiOrb />
-              <h3 className="font-semibold text-xl tracking-tight bg-gradient-to-r from-foreground via-foreground to-primary/80 bg-clip-text text-transparent mb-2">
+              <h3 className="mb-2 bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-800 bg-clip-text font-semibold text-xl tracking-tight text-transparent dark:from-foreground dark:via-foreground dark:to-primary/80">
                 Luna AI Assistant
               </h3>
-              <p className="text-muted-foreground text-sm mb-8 max-w-sm mx-auto leading-relaxed">
+              <p className="mx-auto mb-8 max-w-sm text-sm leading-relaxed text-neutral-700 dark:text-muted-foreground">
                 Your copilot for Monday.com — pick a starter or type your own question.
               </p>
-              <div className="grid gap-3 text-left">
-                {[
-                  'Show me the entries from the Incoming Leads Tracker board with today’s referral date.',
-                  'List the entries from the Depression Pre-Screening form along with their status.',
-                  'What is the status of "X" person?',
-                ].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => sendMessage(suggestion)}
-                    className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card bg-gradient-to-br from-card to-muted/40 px-4 py-3.5 text-sm text-left shadow-sm transition-all hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 dark:border-border/60 dark:from-card/80 dark:to-muted/20"
-                  >
-                    <span className="absolute left-0 top-0 h-full w-1 rounded-l-2xl bg-gradient-to-b from-primary to-chart-3 opacity-0 transition-opacity group-hover:opacity-100" />
-                    <span className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-                        <Wand2 className="h-4 w-4" />
-                      </span>
-                      <span className="leading-snug text-foreground/90">{suggestion}</span>
-                    </span>
-                  </button>
-                ))}
+              <div className="mb-6 text-left">
+                <ChatComposer
+                  isLoading={isLoading}
+                  input={input}
+                  onInputChange={setInput}
+                  onSubmit={handleSubmit}
+                  onStop={handleStop}
+                  pdfItems={pdfItems}
+                  onPickPdf={() => pdfInputRef.current?.click()}
+                  onPdfInputChange={addPdfFiles}
+                  onRemovePdf={(id) =>
+                    setPdfItems((prev) => prev.filter((p) => p.id !== id))
+                  }
+                  pdfInputRef={pdfInputRef}
+                />
               </div>
+              <div className="grid gap-3 text-left" />
             </div>
           </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-5 pb-1">
             {messages.map((message) => {
               const isUser = message.role === 'user';
 
@@ -420,9 +603,24 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                     )}
                     {message.content &&
                       (isUser ? (
-                        <p className="whitespace-pre-wrap break-words leading-relaxed text-primary-foreground/95">
-                          {message.content}
-                        </p>
+                        <div className="space-y-2">
+                          <p className="whitespace-pre-wrap break-words leading-relaxed text-primary-foreground/95">
+                            {message.content}
+                          </p>
+                          {message.attachments && message.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {message.attachments.map((a, i) => (
+                                <span
+                                  key={`${a.name}-${i}`}
+                                  className="inline-flex max-w-full items-center gap-1 rounded-full bg-primary-foreground/15 px-2 py-0.5 text-[11px] text-primary-foreground/95"
+                                >
+                                  <FileText className="h-3 w-3 shrink-0 opacity-90" />
+                                  <span className="truncate">{a.name}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <AssistantMarkdown content={message.content} />
                       ))}
@@ -459,36 +657,29 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
             )}
 
             <div ref={messagesEndRef} />
-          </>
+          </div>
         )}
         </div>
 
-        <div className="relative border-t border-border/60 bg-gradient-to-t from-muted/40 to-transparent dark:border-border/50 dark:from-muted/30 px-4 sm:px-6 py-4">
-          <form onSubmit={handleSubmit} className="flex gap-2.5 items-end">
-            <Input
-              placeholder="Ask about boards, items, workflows…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={isLoading}
-              className="flex-1 h-12 rounded-2xl border-border/70 bg-background px-4 shadow-inner transition-shadow focus-visible:border-primary/40 focus-visible:ring-primary/20 dark:border-border/60 dark:bg-background/50"
+        {messages.length > 0 && (
+          <div className="relative shrink-0 border-t border-border/60 bg-gradient-to-t from-muted/40 to-transparent dark:border-border/50 dark:from-muted/30 px-4 sm:px-6 py-4">
+            <ChatComposer
+              isLoading={isLoading}
+              input={input}
+              onInputChange={setInput}
+              onSubmit={handleSubmit}
+              onStop={handleStop}
+              pdfItems={pdfItems}
+              onPickPdf={() => pdfInputRef.current?.click()}
+              onPdfInputChange={addPdfFiles}
+              onRemovePdf={(id) => setPdfItems((prev) => prev.filter((p) => p.id !== id))}
+              pdfInputRef={pdfInputRef}
             />
-            <Button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              size="icon"
-              className="h-12 w-12 shrink-0 rounded-2xl bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
-            >
-              {isLoading ? (
-                <Spinner size="sm" className="text-primary-foreground" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </form>
-          <p className="mt-2.5 text-center text-[11px] text-muted-foreground/90">
-            Tip: name the board and a date range for sharper answers.
-          </p>
-        </div>
+            <p className="mt-2.5 text-center text-[11px] text-neutral-600 dark:text-muted-foreground/90">
+              Tip: name the board and a date range for sharper answers.
+            </p>
+          </div>
+        )}
         </div>
       </div>
     </div>

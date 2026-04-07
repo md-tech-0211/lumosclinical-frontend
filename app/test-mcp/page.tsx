@@ -19,7 +19,7 @@ export default function TestMCP() {
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto font-mono text-sm">
+    <div className="mx-auto h-full min-h-0 max-w-4xl overflow-y-auto p-8 font-mono text-sm [scrollbar-gutter:stable]">
       <h1 className="text-2xl font-bold mb-4">MCP Server Connectivity Test</h1>
       <button
         onClick={runTest}

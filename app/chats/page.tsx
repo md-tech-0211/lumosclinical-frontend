@@ -36,7 +36,7 @@ export default function ChatsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="mx-auto h-full min-h-0 max-w-2xl space-y-8 overflow-y-auto [scrollbar-gutter:stable]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
