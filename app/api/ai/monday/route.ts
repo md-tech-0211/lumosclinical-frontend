@@ -170,7 +170,8 @@ Always respond in clear, simple language. Where helpful, summarize complex Monda
 Default data scope (critical):
 - Prefer using ONLY these boards unless the user explicitly requests otherwise:
   1) "Incoming Leads Tracker"
-  2) "New general Prescreening form"
+  2) "New general ps form" (primary boardId: 18383803050)
+- If you need the "New general ps form", use boardId 18383803050 directly instead of searching by name.
 - If you need a person/agent/status and it is not found in those two boards, then (and only then) broaden the search to other boards.
 - When selecting boards, use exact name matching first via monday_find_board_by_name for the two preferred boards.
 
