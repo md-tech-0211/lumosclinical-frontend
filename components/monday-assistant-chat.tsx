@@ -29,7 +29,9 @@ import {
   sanitizeAssistantDisplayText,
 } from '@/lib/sanitize-assistant-text';
 
-const REQUEST_TIMEOUT_MS = 120_000;
+// Bedrock/MCP can be slow to produce the first streamed chunk. Keep this comfortably above
+// typical tool+model latency to avoid aborting requests that are still progressing server-side.
+const REQUEST_TIMEOUT_MS = 300_000;
 
 const MAX_PDF_FILES = 5;
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
@@ -128,6 +130,7 @@ function ChatComposer({
             disabled={isLoading}
             onClick={onPickPdf}
             aria-label="Add PDF"
+            suppressHydrationWarning
           >
             <Plus className="h-5 w-5" />
           </Button>
@@ -162,6 +165,7 @@ function ChatComposer({
             onChange={(e) => onInputChange(e.target.value)}
             disabled={isLoading}
             className="h-12 w-full rounded-2xl border-sky-200/50 bg-white/90 pl-14 pr-14 text-slate-900 shadow-[inset_0_1px_2px_hsl(0_0%_0%/0.04)] backdrop-blur-sm transition-shadow placeholder:text-slate-500 focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-border/60 dark:bg-background/50 dark:text-foreground dark:placeholder:text-muted-foreground"
+            suppressHydrationWarning
           />
         </div>
       </form>
@@ -530,13 +534,16 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
         <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 [scrollbar-gutter:stable]">
         {messages.length === 0 ? (
-          <div className="flex min-h-[min(52vh,520px)] items-start justify-center py-2">
-            <div className="w-full max-w-lg text-center">
+          <div className="flex min-h-[min(52vh,520px)] flex-col">
+            <div className="shrink-0 pt-2 text-center sm:pt-4">
               <LunaAiOrb />
-              <h3 className="mb-8 bg-gradient-to-r from-slate-900 via-sky-800 to-violet-800 bg-clip-text text-xl font-semibold tracking-tight text-transparent dark:bg-none dark:text-foreground">
+              <h3 className="bg-gradient-to-r from-slate-900 via-sky-800 to-violet-800 bg-clip-text text-xl font-semibold tracking-tight text-transparent dark:bg-none dark:text-foreground">
                 Luna AI Assistant
               </h3>
-              <div className="mb-6 text-left">
+            </div>
+
+            <div className="flex flex-1 items-center justify-center">
+              <div className="w-full max-w-lg text-left">
                 <ChatComposer
                   isLoading={isLoading}
                   input={input}
@@ -552,7 +559,6 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                   pdfInputRef={pdfInputRef}
                 />
               </div>
-              <div className="grid gap-3 text-left" />
             </div>
           </div>
         ) : (

@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 /** Navigates home with a fresh query key so the chat panel remounts (new conversation). */
-export function NavNewChatLink({ className }: { className?: string }) {
+export function NavNewChatLink({
+  className,
+  collapsed,
+}: {
+  className?: string;
+  collapsed?: boolean;
+}) {
   const router = useRouter();
 
   return (
@@ -16,9 +22,11 @@ export function NavNewChatLink({ className }: { className?: string }) {
         className
       )}
       onClick={() => router.push(`/?new=${Date.now()}`)}
+      title={collapsed ? 'New chat' : undefined}
+      suppressHydrationWarning
     >
       <Plus className="h-4 w-4 shrink-0" aria-hidden />
-      New chat
+      <span className={cn(collapsed && 'sr-only')}>New chat</span>
     </button>
   );
 }
