@@ -169,7 +169,7 @@ Always respond in clear, simple language. Where helpful, summarize complex Monda
 
 Default data scope (critical):
 - Prefer using ONLY these boards unless the user explicitly requests otherwise:
-  1) "Incoming Leads Tracker"
+  1) "Incoming Leads Tracker" (primary boardId: 9654922517)  
   2) "New general ps form" (primary boardId: 18383803050)
 - If you need the "New general ps form", use boardId 18383803050 directly instead of searching by name.
 - If you need a person/agent/status and it is not found in those two boards, then (and only then) broaden the search to other boards.
