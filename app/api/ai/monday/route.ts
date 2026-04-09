@@ -6,7 +6,7 @@ import type { ModelMessage, ToolSet } from "ai";
 
 export const runtime = "nodejs";
 /** Vercel: allow long Bedrock + MCP streams (Hobby plan max 10s unless upgraded). */
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * Used when `BEDROCK_MODEL_ID` is missing or blank in the environment.
@@ -167,6 +167,29 @@ ${context}
 
 Always respond in clear, simple language. Where helpful, summarize complex Monday structures (boards, groups, items) in a human-friendly way.
 
+Default data scope (critical):
+- Prefer using ONLY these boards unless the user explicitly requests otherwise:
+  1) "Incoming Leads Tracker"
+  2) "New general Prescreening form"
+- If you need a person/agent/status and it is not found in those two boards, then (and only then) broaden the search to other boards.
+- When selecting boards, use exact name matching first via monday_find_board_by_name for the two preferred boards.
+
+Tool-use constraints (critical):
+- Do NOT fetch entire boards or huge datasets. Prefer targeted tools and small result sets.
+- When listing "recent" items, return at most 20 rows unless the user asks for more.
+- For counts/metrics (e.g. "how many leads on date"), use metrics-style tools when available (e.g. status/date metrics) instead of listing every item.
+- If the user asks multiple different questions at once, handle them one by one and avoid pulling data for all of them in a single tool burst. Ask for missing specifics (e.g. the person name / agent name) before querying.
+
+Common clinic lead/prescreen questions you should handle with MCP tools (do not guess):
+- "Give the status of <Person>": find items matching the person name across relevant lead/prescreen boards; return the most relevant status columns (e.g. Lead Status, Prescreen Status, Call Status) plus last updated date and who owns/assignee.
+- "List out the recent leads from Incoming Leads Tracker": locate the board whose name matches "Incoming Leads Tracker" (or closest); list the most recent items (use created time / last updated if available).
+- "How many leads did we get on <date>": in Incoming Leads Tracker, filter items by created date (or received date column); return the count and optionally a short list of names.
+- "How many pre screening calls are scheduled": in the prescreen/calls board, count items with call status = scheduled or a scheduled date in the future; include the time window you used.
+- "Give a list of people assigned to <agent>": in lead/prescreen boards, filter by assignee/owner equals that agent; list people + current status.
+- "What is the prescreen status of <Person>": find the person and return the prescreen status column value (and any relevant substatus).
+- "List out people who are eligible from the New general Prescreening form": locate the board matching that name; filter by eligibility = eligible (or equivalent); list names + key fields.
+- "List out all the people with BMI above <number>": filter by BMI numeric column; list names + BMI and the board/source.
+
 When your answer is tabular (multiple rows and columns of related data — e.g. board items with names, statuses, assignees, dates), format it as a **GitHub-flavored Markdown table**: header row, separator row (\`|---|\`), then one row per record. Do not fake tables with spaces or bullet lists unless the user asked for a non-tabular layout. For a single pair of facts, a short sentence or bullet list is fine.`;
   }
 
@@ -182,6 +205,76 @@ Then:
 ${context}
 
 Always respond in clear, simple language.`;
+}
+
+const MAX_TOOL_RESULT_CHARS = 60_000;
+const MAX_LIST_ITEMS = 25;
+
+function truncateToolResult(value: unknown): unknown {
+  // Fast path: small payloads
+  try {
+    const s = JSON.stringify(value);
+    if (s.length <= MAX_TOOL_RESULT_CHARS) return value;
+  } catch {
+    // fall through
+  }
+
+  // Prefer structured truncation for common shapes
+  if (Array.isArray(value)) {
+    return {
+      truncated: true,
+      originalType: "array",
+      originalLength: value.length,
+      items: value.slice(0, MAX_LIST_ITEMS),
+    };
+  }
+
+  if (value && typeof value === "object") {
+    const v = value as Record<string, unknown>;
+    for (const k of ["items", "data", "results", "leads"]) {
+      const maybeArr = v[k];
+      if (Array.isArray(maybeArr)) {
+        return {
+          ...v,
+          truncated: true,
+          truncation: { key: k, originalLength: maybeArr.length, kept: MAX_LIST_ITEMS },
+          [k]: maybeArr.slice(0, MAX_LIST_ITEMS),
+        };
+      }
+    }
+  }
+
+  // Last resort: return a compact preview
+  let preview = "";
+  try {
+    preview = JSON.stringify(value).slice(0, MAX_TOOL_RESULT_CHARS);
+  } catch {
+    preview = String(value).slice(0, MAX_TOOL_RESULT_CHARS);
+  }
+  return {
+    truncated: true,
+    preview,
+  };
+}
+
+function wrapToolsWithTruncation(raw: ToolSet): ToolSet {
+  const out: ToolSet = {};
+  for (const [name, tool] of Object.entries(raw)) {
+    const t: any = tool;
+    const exec = t?.execute;
+    if (typeof exec === "function") {
+      out[name] = {
+        ...t,
+        execute: async (args: unknown, options: unknown) => {
+          const res = await exec(args, options);
+          return truncateToolResult(res);
+        },
+      } as any;
+    } else {
+      out[name] = tool;
+    }
+  }
+  return out;
 }
 
 export async function POST(req: Request) {
@@ -271,6 +364,7 @@ export async function POST(req: Request) {
         typeof mcpTools === "object" && mcpTools !== null
           ? (mcpTools as ToolSet)
           : {};
+      tools = wrapToolsWithTruncation(tools);
       console.log("[monday] tools (MCP):", Object.keys(tools));
       mcpAvailable = true;
     } catch (mcpErr) {
