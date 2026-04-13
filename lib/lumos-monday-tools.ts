@@ -17,7 +17,7 @@ export function buildLumosMondaySearchTools(): ToolSet {
 
   return {
     lumos_search_person_by_item_name: tool({
-      description: `**Use first** for questions like "form for Shyam", "find candidate X", "is this person on the prescreen board?" on the two default Lumos boards. Calls Monday's API once per board with a **server-side** name filter (contains text) — fast, no full-board scan. Rejects overly generic terms ("form", "lead", …). Returns item id + name + updated_at only; use MCP monday_get_item for full columns if needed. If found is false, tell the user clearly that no matching item name was found.`,
+      description: `**Avoid unless necessary.** Only two boards: user mentioned **lead/leads/lead tracker** → **Incoming Leads Tracker** only; else → **New general ps form** only. Prefer \`get_board_items_by_name\` on that board ID. Use this tool only if the user asks to search **both** boards or “anywhere.” It queries both — then **ignore** hits on the board routing excludes. Rejects generic terms. Returns item id + name + updated_at; use monday_get_item for columns.`,
       inputSchema: z.object({
         term: z
           .string()

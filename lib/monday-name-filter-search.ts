@@ -8,7 +8,8 @@ const DEFAULT_MONDAY_API_URL = "https://api.monday.com/v2";
 /** Same default boards as the Monday assistant system prompt (internal IDs only). */
 export const LUMOS_DEFAULT_BOARDS: readonly { label: string; id: number }[] = [
   { label: "Incoming Leads Tracker", id: 9654922517 },
-  { label: "New general ps form", id: 18383803050 },
+  /** Monday UI name may vary; assistant prompt aliases "New general ps form". */
+  { label: "New general PS board", id: 18383803050 },
 ];
 
 const GENERIC_TERMS = new Set([
@@ -36,6 +37,10 @@ const GENERIC_TERMS = new Set([
   "candidates",
   "prescreen",
   "prescreening",
+  "subject",
+  "subjects",
+  "patient",
+  "patients",
 ]);
 
 function getToken(): string | undefined {
