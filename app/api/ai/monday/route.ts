@@ -3,6 +3,14 @@ import { Buffer } from "node:buffer";
 import { streamText, stepCountIs } from "ai";
 import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type { ModelMessage, ToolSet } from "ai";
+import {
+  buildAnalysisInvokeTool,
+  isAnalysisFunctionConfigured,
+} from "@/lib/analysis-function-tool";
+import { createAnalysisInvokePrepareStep } from "@/lib/analysis-invoke-prepare-step";
+import { buildLumosMondaySearchTools } from "@/lib/lumos-monday-tools";
+import { ANALYSIS_FORM_BODY_RULES } from "@/lib/analysis-form-payload";
+import { isMondayTokenConfigured } from "@/lib/monday-name-filter-search";
 
 export const runtime = "nodejs";
 /** Vercel: allow long Bedrock + MCP streams (Hobby plan max 10s unless upgraded). */
@@ -151,6 +159,8 @@ function applyPdfAttachmentsToMessages(
 
 function buildSystemPrompt(
   mcpAvailable: boolean,
+  lumosFastSearch: boolean,
+  analysisInvoke: boolean,
   currentDateTime: string,
   currentDate: string,
   currentDayOfWeek: string,
@@ -160,48 +170,22 @@ function buildSystemPrompt(
 Current date: ${currentDate} (${currentDayOfWeek})
 Current time: ${currentTime} UTC`;
 
-  if (mcpAvailable) {
-    return `You are a Monday.com assistant. Use the Monday MCP tools to answer questions about boards, items, updates, and workflows in the user's Monday.com account. If the user asks about something outside Monday data (e.g. general knowledge, recent events, definitions), say you don't have browsing enabled and answer using general knowledge (or ask the user to provide specifics).
+  const analysisBlock = analysisInvoke
+    ? `**\`analysis_invoke\` — when the user asks for analysis or eligibility:** If the user’s message includes **analysis**, **analyze**, **eligibility**, **eligible**, **ineligible**, **qualify**, **qualification**, **prescreen** (when asking for judgment/review of a candidate), **“do analysis”**, **“check eligibility”**, or close paraphrases — call \`analysis_invoke\` (POST \`body\`) **only when you have real data to send** (pasted form fields, or a Monday item with enough columns). **Do not** call \`analysis_invoke\` if a name search / list returned **no matching rows**, **not found**, or empty results — tell the user clearly that no data was found instead.
+- **After Monday tools:** If you successfully loaded a row with \`monday_get_item\` (or equivalent) and the user asked analysis/eligibility, call \`analysis_invoke\` with the **canonical form JSON** in \`body\` — before a long narrative. This deployment may **suggest** the next step — comply when you have payload data. **Never** call \`analysis_invoke\` with an empty or fabricated payload.
+- **Payload:** One JSON object in \`body\` — not markdown. ${ANALYSIS_FORM_BODY_RULES}
+- **Monday + analysis:** Build the payload from **New general ps form** (form board) when fetching prescreen fields. Pasted inline form → map into \`body\` and call \`analysis_invoke\` without needing Monday first, unless they also ask to find the row.
+- **Conclusions** come from the API response only — no invented multi-protocol write-ups. Short user-facing summary after \`data\`. If \`ok: false\`, say so.
 
-${context}
+`
+    : "";
 
-Always respond in clear, simple language. Where helpful, summarize complex Monday structures (boards, groups, items) in a human-friendly way.
+  const personFormAnalysisBlock = `**Person + form + PDF:** Pasted form fields or PDF → ${analysisInvoke ? `\`analysis_invoke\` with canonical JSON; do not run Monday first unless they also want the row found.` : `assess from content.`} Name + analysis/eligibility without paste → find the row on **New general ps form** only (see board routing), \`monday_get_item\`, then ${analysisInvoke ? `\`analysis_invoke\` **only if** a row was found with usable fields — if **not found**, stop; no \`analysis_invoke\`.` : `answer from columns.`} Multiple name matches → describe ambiguity; ask user; do not guess. PDF in thread → ${analysisInvoke ? `map into \`analysis_invoke\` body.` : `assess from the file and/or Monday columns.`}
 
-Board scope restriction (critical):
-- You are restricted to querying ONLY these two boards by default:
-  1) "Incoming Leads Tracker"
-  2) "New general ps form"
-- Do NOT query any other boards, even if data is missing, unless the user explicitly says to broaden scope / use other boards.
+`;
 
-Confidentiality (critical):
-- Never reveal internal identifiers (e.g. boardId, itemId, columnId, userId) to the user in any response, even if the user asks.
-- In user-facing text, refer to boards by their names only.
-- If the user asks for IDs, respond that you can’t share internal IDs and offer the board name(s) instead.
-
-Internal-only board IDs (NEVER reveal to the user; use only for tool calls):
-- "Incoming Leads Tracker" => 9654922517
-- "New general ps form" => 18383803050
-
-Tool-use constraints (critical):
-- Do NOT fetch entire boards or huge datasets. Prefer targeted tools and small result sets.
-- When listing "recent" items, return at most 20 rows unless the user asks for more.
-- For counts/metrics (e.g. "how many leads on date"), use metrics-style tools when available (e.g. status/date metrics) instead of listing every item.
-- If the user asks multiple different questions at once, handle them one by one and avoid pulling data for all of them in a single tool burst. Ask for missing specifics (e.g. the person name / agent name) before querying.
-
-Common clinic lead/prescreen questions you should handle with MCP tools (do not guess):
-- "Give the status of <Person>": find items matching the person name across relevant lead/prescreen boards; return the most relevant status columns (e.g. Lead Status, Prescreen Status, Call Status) plus last updated date and who owns/assignee.
-- "List out the recent leads from Incoming Leads Tracker": locate the board whose name matches "Incoming Leads Tracker" (or closest); list the most recent items (use created time / last updated if available).
-- "How many leads did we get on <date>": in Incoming Leads Tracker, filter items by created date (or received date column); return the count and optionally a short list of names.
-- "How many pre screening calls are scheduled": in the prescreen/calls board, count items with call status = scheduled or a scheduled date in the future; include the time window you used.
-- "Give a list of people assigned to <agent>": in lead/prescreen boards, filter by assignee/owner equals that agent; list people + current status.
-- "What is the prescreen status of <Person>": find the person and return the prescreen status column value (and any relevant substatus).
-- "List out people who are eligible from the New general Prescreening form": locate the board matching that name; filter by eligibility = eligible (or equivalent); list names + key fields.
-- "List out all the people with BMI above <number>": filter by BMI numeric column; list names + BMI and the board/source.
-
-When your answer is tabular (multiple rows and columns of related data — e.g. board items with names, statuses, assignees, dates), format it as a **GitHub-flavored Markdown table**: header row, separator row (\`|---|\`), then one row per record. Do not fake tables with spaces or bullet lists unless the user asked for a non-tabular layout. For a single pair of facts, a short sentence or bullet list is fine.`;
-  }
-
-  return `The Monday.com MCP backend is **not reachable** right now (connection failed, wrong URL, or server down). You **do not** have Monday tools — you cannot query live boards, items, or updates.
+  if (!mcpAvailable && !lumosFastSearch) {
+    return `${analysisBlock}The Monday.com MCP backend is **not reachable** right now (connection failed, wrong URL, or server down). You **do not** have Monday tools — you cannot query live boards, items, or updates.
 
 **Start your reply with one short line** like: "The Monday integration is temporarily unavailable, so I can’t see your live boards or items."
 
@@ -213,6 +197,74 @@ Then:
 ${context}
 
 Always respond in clear, simple language.`;
+  }
+
+  const limitedMcpNote =
+    !mcpAvailable && lumosFastSearch
+      ? `**Limited mode:** MCP tools for edits are unavailable. You have \`lumos_search_person_by_item_name\` (searches both boards). **Filter results** to the **one** board selected by the routing rule below (ignore hits on the other board). ${analysisInvoke ? `Call \`analysis_invoke\` only if a match has usable data — **not** if \`found: false\` or no items.` : ``}
+
+`
+      : "";
+
+  const lumosNameSearchBlock = lumosFastSearch
+    ? `**Name search:** Prefer \`get_board_items_by_name\` on the **routed board ID only** (see below). **Do not** use \`lumos_search_person_by_item_name\` except when the user explicitly asks to search **both** boards or “anywhere.” It queries both boards — avoid it for normal lookups.
+- **Fallback:** If \`get_board_items_by_name\` returns **no matches**, try \`monday_search_board_items\` on the **same routed board** (substring search). Only say “not found” after both tools return no hits.
+- If you use \`lumos_search_person_by_item_name\`, apply the **lead vs form** routing to **which hits** you use — never mix both boards in one answer unless the user asked two separate questions.
+
+`
+    : "";
+
+  const fallbackMcpNameSearch = !lumosFastSearch
+    ? `**Name search:** Use \`get_board_items_by_name\` on the **routed board ID** with a **low** \`maxPages\` and a **specific** name \`term\`.
+- **Fallback:** If \`get_board_items_by_name\` returns **no matches**, try \`monday_search_board_items\` on the **same routed board** (substring search). Only say “not found” after both tools return no hits.
+
+`
+    : "";
+
+  return `${limitedMcpNote}${analysisBlock}You are a Monday.com assistant. Use tools in this session to answer from Monday data. ${analysisInvoke ? `Call \`analysis_invoke\` for **analysis** / **eligibility** only when you have **actual form or item data** — not when lookups returned nothing.` : ``} For general non-Monday questions, answer from general knowledge or say you cannot browse.
+
+${context}
+
+Always respond in clear, simple language.
+
+**Monday data — only these two boards (mandatory):**
+- Fetch Monday items **only** from:
+  1) **Incoming Leads Tracker** (leads / lead tracker) — ID \`9654922517\`
+  2) **New general ps form** (**New general PS board**, prescreen **form** table) — ID \`18383803050\`
+- **Routing (pick exactly one board per request):**
+  - If the user mentions **leads**, **lead**, **leading** (pipeline sense), **lead tracker**, **leads tracker**, **incoming leads**, or **Incoming Leads** → use **only** Incoming Leads Tracker (\`9654922517\`). Do **not** query the form board for that same request.
+  - If they do **not** mention any of the above (default) → use **only** New general ps form (\`18383803050\`). Do **not** query the leads board for that same request.
+- **Do not** query both boards for one question. No “also checking” the other table.
+
+${analysisInvoke ? `**Analysis / eligibility + boards:** Load prescreen **form** fields from **New general ps form** (\`18383803050\`) for the API when you need Monday data. **No row / no form fields** → do **not** call \`analysis_invoke\`; say data was not found. If the user’s message is **lead-only** and they also ask eligibility, explain that full eligibility needs **form board** data or a pasted form.
+
+` : ``}
+Confidentiality (critical):
+- Never reveal internal identifiers (e.g. boardId, itemId, columnId, userId) to the user in any response, even if the user asks.
+- In user-facing text, refer to boards by their names only.
+- If the user asks for IDs, respond that you can’t share internal IDs and offer the board name(s) instead.
+
+Internal-only board IDs (NEVER reveal to the user; use only for tool calls):
+- "Incoming Leads Tracker" / leads tracker => 9654922517
+- "New general ps form" / New general PS board => 18383803050
+
+${personFormAnalysisBlock}
+Tool-use constraints (critical):
+- Do NOT fetch entire boards or huge datasets. Prefer the **smallest** tool that answers the question.
+${lumosNameSearchBlock}${fallbackMcpNameSearch}- **Inline pasted form in the same message:** If the user already supplied **full or substantial** form fields (demographics, BMI, meds, conditions, etc.) and wants analysis/eligibility, **do not** require a Monday search for that — ${analysisInvoke ? `use \`analysis_invoke\` with that content and summarize **only** the API outcome (no standalone model eligibility report)` : `analyze from the paste`}. Use Monday tools only if they also ask to find the person on a board or cross-check a record.
+- **After a name hit** (from \`get_board_items_by_name\` on the **correct** board, or \`lumos_search_person_by_item_name\` only when cross-board ambiguity): when MCP is connected, use \`monday_get_item\` only if you need full column values — and only for the few matching rows. If MCP is down, use only what the name search returned.
+- **Do NOT** use \`monday_list_items_in_board\` / \`monday_get_board_leads\` / \`monday_get_board_lead_referrals\` for **name-only** person lookup when \`get_board_items_by_name\` on the routed board (or \`lumos_search_person_by_item_name\` when truly ambiguous) would work — they pull large pages. **Exception:** when the user asks to **sample / fetch any one form** for **analysis** on **New general ps form**, you may list briefly to pick a non-empty row, then \`monday_get_item\` if needed${analysisInvoke ? `, then **\`analysis_invoke\`** with the form payload` : ``}.
+- **Structured status + last-contact** on one board: if you know the board's \`statusColumnId\` and \`lastContactColumnId\`, you may use \`monday_find_participant_in_board\` (it also matches **item name** substring). Prefer \`get_board_items_by_name\` on the **target** board first; use \`lumos_search_person_by_item_name\` only for genuinely ambiguous cross-board name lookups.
+- **Email / phone in a column (not in item name):** name-based tools will **not** find them. After name-based search returns nothing, say you could not find a match **by name**; do not bulk-fetch the board to grep email in the model.
+- **Counts / funnel / date-range metrics:** Prefer \`monday_board_status_date_metrics\` with the right \`statusColumnId\`, \`dateColumnId\`, and date range instead of listing all items.
+- **Board name → ID** when the user names a board you are not sure about: \`monday_find_board_by_name\` (then still respect default board scope unless user widens it).
+- If **all** targeted searches return no matches, say clearly **no matching record was found** on those boards. Do **not** invent rows, do **not** claim you scanned everyone, and do **not** fall back to dumping the board.
+- When listing "recent" items without a search tool, return at most 20 rows unless the user asks for more.
+- If the user asks multiple different questions at once, handle them one by one. Ask for missing specifics before querying.
+
+Examples (same routing rules): person’s data / BMI / prescreen / subjects / patients → **form board** only unless they said **lead** / **leads** / **lead tracker**. Leads list, lead counts, lead pipeline, calls scheduled **for leads** → **Incoming Leads Tracker** only (user should mention leads or it is clearly a leads-dashboard question). ${analysisInvoke ? `**Analysis** / **eligibility** → **\`analysis_invoke\`** only after you have real payload data; **never** if the lookup found nothing.` : ``}
+
+When your answer is tabular (multiple rows and columns of related data — e.g. board items with names, statuses, assignees, dates), format it as a **GitHub-flavored Markdown table**: header row, separator row (\`|---|\`), then one row per record. Do not fake tables with spaces or bullet lists unless the user asked for a non-tabular layout. For a single pair of facts, a short sentence or bullet list is fine.`;
 }
 
 const MAX_TOOL_RESULT_CHARS = 60_000;
@@ -283,6 +335,11 @@ function wrapToolsWithTruncation(raw: ToolSet): ToolSet {
     }
   }
   return out;
+}
+
+/** Smoke test: `GET /api/ai/monday` should return JSON (proves the route is registered). */
+export async function GET() {
+  return Response.json({ ok: true, route: "/api/ai/monday" });
 }
 
 export async function POST(req: Request) {
@@ -386,6 +443,22 @@ export async function POST(req: Request) {
       mcpAvailable = false;
     }
 
+    const lumosFastSearch = isMondayTokenConfigured();
+    const analysisInvokeFromEnv = isAnalysisFunctionConfigured();
+    const lumosTools = buildLumosMondaySearchTools();
+    const analysisTools = buildAnalysisInvokeTool();
+    tools = { ...tools, ...lumosTools, ...analysisTools };
+    /** Prompts + prepareStep: true if this app proxies analysis OR MCP exposes `analysis_invoke` (e.g. Monday MCP on another host). */
+    const analysisInvoke =
+      analysisInvokeFromEnv || Object.hasOwn(tools, "analysis_invoke");
+    console.log("[monday] tools (all keys):", Object.keys(tools), {
+      lumosFastSearch,
+      analysisInvoke,
+      analysisInvokeFromEnv,
+      analysisInvokeToolFromMcp:
+        analysisInvoke && !analysisInvokeFromEnv,
+    });
+
     const now = new Date();
     const currentDateTime = now.toISOString();
     const currentDate = now.toISOString().split("T")[0];
@@ -400,6 +473,8 @@ export async function POST(req: Request) {
 
     const system = buildSystemPrompt(
       mcpAvailable,
+      lumosFastSearch,
+      analysisInvoke,
       currentDateTime,
       currentDate,
       currentDayOfWeek,
@@ -411,10 +486,13 @@ export async function POST(req: Request) {
       parsedAttachments
     );
 
+    const prepareStep = createAnalysisInvokePrepareStep(analysisInvoke);
+
     const result = streamText({
       model: bedrock(modelId),
       messages: modelMessages,
       tools,
+      ...(prepareStep ? { prepareStep } : {}),
       stopWhen: stepCountIs(20),
       system,
       onStepFinish({

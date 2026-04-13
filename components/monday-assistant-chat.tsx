@@ -206,8 +206,11 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<ChatMessage[]>(messages);
   const abortRef = useRef<AbortController | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  messagesRef.current = messages;
 
   /** Only scroll when the user sends a message — not on every assistant stream chunk (avoids jank / “shaking” near the input). */
   useEffect(() => {
@@ -290,7 +293,7 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     setIsLoading(true);
     setError(null);
 
-    const apiMessages = [...messages, userMsg].map((m) => ({
+    const apiMessages = [...messagesRef.current, userMsg].map((m) => ({
       role: m.role,
       content: m.content,
     }));
@@ -316,6 +319,12 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     let streamAssistantId: string | null = null;
     let abortedByTimeout = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    /** Stream UI batching (must be cleared in catch if the reader throws). */
+    let streamRafId: number | null = null;
+    let streamPendingAssistant: {
+      content: string;
+      tools: Array<{ name: string; status: 'pending' | 'done' }>;
+    } | null = null;
 
     try {
       abortRef.current = new AbortController();
@@ -351,13 +360,24 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
           }
         } catch {
           if (errorBody.trim()) {
-            errorMessage = /<!DOCTYPE|<html[\s>]/i.test(errorBody)
-              ? "The server returned a web page instead of an API response. Check that /api/ai/monday is correct and the app is running."
-              : errorBody.slice(0, 500);
+            const isHtml = /<!DOCTYPE|<html[\s>]/i.test(errorBody);
+            if (response.status === 404 && isHtml) {
+              const origin =
+                typeof window !== 'undefined' ? window.location.origin : '';
+              errorMessage =
+                `Chat API not found (404). The server returned an HTML page instead of JSON.${origin ? ` This page is ${origin}.` : ''} If "next dev" printed a different port (e.g. 3001 because 3000 is in use), open the app at that Local URL — a tab on another port talks to a different process and /api/ai/monday will 404. Or free port 3000 and restart the dev server.`;
+            } else if (isHtml) {
+              errorMessage =
+                'The server returned a web page instead of an API response. Check that /api/ai/monday exists and the app is running.';
+            } else {
+              errorMessage = errorBody.slice(0, 500);
+            }
           }
         }
         console.warn("[monday] Chat API error:", response.status, errorBody || "(empty body)");
-        throw new Error(errorMessage);
+        // Surface as UI state — do not throw (avoids dev overlay / stack noise for expected 4xx/5xx).
+        setError(errorMessage);
+        return;
       }
 
       const body = response.body;
@@ -377,7 +397,11 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
         { id: assistantId, role: 'assistant', content: '', toolCalls: [] },
       ]);
 
-      const updateMessage = (content: string, tools: typeof toolCalls) => {
+      /** Batch UI updates: hundreds of SSE lines per chunk can sync-call setMessages and exceed React update depth. */
+      const flushAssistantMessage = () => {
+        if (!streamPendingAssistant) return;
+        const { content, tools } = streamPendingAssistant;
+        streamPendingAssistant = null;
         const safe = sanitizeAssistantDisplayText(content);
         setMessages((prev) =>
           prev.map((m) =>
@@ -386,6 +410,19 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
               : m
           )
         );
+      };
+
+      const scheduleAssistantFlush = () => {
+        if (streamRafId != null) return;
+        streamRafId = requestAnimationFrame(() => {
+          streamRafId = null;
+          flushAssistantMessage();
+        });
+      };
+
+      const updateMessage = (content: string, tools: typeof toolCalls) => {
+        streamPendingAssistant = { content, tools };
+        scheduleAssistantFlush();
       };
 
       while (true) {
@@ -452,13 +489,35 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
       toolCalls = toolCalls.map((t) => ({ ...t, status: 'done' as const }));
 
+      if (streamRafId != null) {
+        cancelAnimationFrame(streamRafId);
+        streamRafId = null;
+      }
+      streamPendingAssistant = null;
+
       const hasText = fullContent.trim().length > 0;
       const hasTools = toolCalls.length > 0;
       const rawFinal = hasText || hasTools ? fullContent : EMPTY_REPLY_FALLBACK;
       const finalText = sanitizeAssistantDisplayText(rawFinal);
 
-      updateMessage(finalText, toolCalls);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content: finalText,
+                toolCalls: [...toolCalls],
+              }
+            : m
+        )
+      );
     } catch (err: any) {
+      if (streamRafId != null) {
+        cancelAnimationFrame(streamRafId);
+        streamRafId = null;
+      }
+      streamPendingAssistant = null;
+
       // "Stop" is an expected path. Avoid surfacing it as a console error
       // (Next dev overlay treats console errors as visible issues).
       if (err?.name === "AbortError") {
@@ -509,7 +568,7 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
       if (timeoutId) clearTimeout(timeoutId);
       setIsLoading(false);
     }
-  }, [isLoading, messages, sessionId]);
+  }, [isLoading, sessionId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
