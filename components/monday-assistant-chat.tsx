@@ -25,6 +25,13 @@ import {
   sessionTitleFromMessages,
 } from '@/lib/chat-sessions';
 import {
+  ATTACHMENT_TYPE_ERROR_HINT,
+  CHAT_ATTACHMENT_ACCEPT,
+  MAX_CHAT_ATTACHMENTS,
+  MAX_CHAT_FILE_BYTES_CLIENT,
+  resolveChatAttachmentMime,
+} from '@/lib/chat-attachments';
+import {
   looksLikeHtmlDocument,
   sanitizeAssistantDisplayText,
 } from '@/lib/sanitize-assistant-text';
@@ -32,9 +39,6 @@ import {
 // Bedrock/MCP can be slow to produce the first streamed chunk. Keep this comfortably above
 // typical tool+model latency to avoid aborting requests that are still progressing server-side.
 const REQUEST_TIMEOUT_MS = 300_000;
-
-const MAX_PDF_FILES = 5;
-const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
 const EMPTY_REPLY_FALLBACK =
   "I couldn’t get a reply from the AI (the response was empty). Please try again in a moment.";
@@ -56,7 +60,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-type PdfPick = { id: string; file: File };
+type AttachmentPick = { id: string; file: File };
 
 function ChatComposer({
   isLoading,
@@ -64,30 +68,30 @@ function ChatComposer({
   onInputChange,
   onSubmit,
   onStop,
-  pdfItems,
-  onPickPdf,
-  onPdfInputChange,
-  onRemovePdf,
-  pdfInputRef,
+  attachmentItems,
+  onPickAttachment,
+  onAttachmentInputChange,
+  onRemoveAttachment,
+  attachmentInputRef,
 }: {
   isLoading: boolean;
   input: string;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   onStop: () => void;
-  pdfItems: PdfPick[];
-  onPickPdf: () => void;
-  onPdfInputChange: (files: FileList | null) => void;
-  onRemovePdf: (id: string) => void;
-  pdfInputRef: React.RefObject<HTMLInputElement | null>;
+  attachmentItems: AttachmentPick[];
+  onPickAttachment: () => void;
+  onAttachmentInputChange: (files: FileList | null) => void;
+  onRemoveAttachment: (id: string) => void;
+  attachmentInputRef: React.RefObject<HTMLInputElement | null>;
 }) {
-  const canSend = input.trim().length > 0 || pdfItems.length > 0;
+  const canSend = input.trim().length > 0 || attachmentItems.length > 0;
 
   return (
     <div className="space-y-2">
-      {pdfItems.length > 0 && (
+      {attachmentItems.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {pdfItems.map((p) => (
+          {attachmentItems.map((p) => (
             <span
               key={p.id}
               className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs text-foreground/90 dark:border-border/50 dark:bg-muted/20"
@@ -97,7 +101,7 @@ function ChatComposer({
               <button
                 type="button"
                 className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
-                onClick={() => onRemovePdf(p.id)}
+                onClick={() => onRemoveAttachment(p.id)}
                 aria-label={`Remove ${p.file.name}`}
               >
                 <X className="h-3.5 w-3.5" />
@@ -109,13 +113,13 @@ function ChatComposer({
 
       <form onSubmit={onSubmit} className="flex items-end">
         <input
-          ref={pdfInputRef}
+          ref={attachmentInputRef}
           type="file"
-          accept="application/pdf,.pdf"
+          accept={CHAT_ATTACHMENT_ACCEPT}
           multiple
           className="hidden"
           onChange={(e) => {
-            onPdfInputChange(e.target.files);
+            onAttachmentInputChange(e.target.files);
             e.target.value = '';
           }}
         />
@@ -128,8 +132,8 @@ function ChatComposer({
             size="icon"
             className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
             disabled={isLoading}
-            onClick={onPickPdf}
-            aria-label="Add PDF"
+            onClick={onPickAttachment}
+            aria-label="Attach file"
             suppressHydrationWarning
           >
             <Plus className="h-5 w-5" />
@@ -200,7 +204,7 @@ export type MondayAssistantChatProps = {
 
 export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatProps) {
   const [input, setInput] = useState('');
-  const [pdfItems, setPdfItems] = useState<PdfPick[]>([]);
+  const [attachmentItems, setAttachmentItems] = useState<AttachmentPick[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null);
   const [isLoading, setIsLoading] = useState(false);
@@ -208,7 +212,7 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<ChatMessage[]>(messages);
   const abortRef = useRef<AbortController | null>(null);
-  const pdfInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   messagesRef.current = messages;
 
@@ -242,25 +246,24 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     });
   }, [sessionId, messages]);
 
-  const addPdfFiles = useCallback((files: FileList | null) => {
+  const addAttachmentFiles = useCallback((files: FileList | null) => {
     if (!files?.length) return;
     setError(null);
     let err: string | null = null;
-    setPdfItems((prev) => {
+    setAttachmentItems((prev) => {
       const next = [...prev];
       for (const f of Array.from(files)) {
-        const isPdf =
-          f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
-        if (!isPdf) {
-          err = 'Only PDF files are supported.';
+        const mime = resolveChatAttachmentMime(f.name, f.type);
+        if (!mime) {
+          err = ATTACHMENT_TYPE_ERROR_HINT;
           continue;
         }
-        if (f.size > MAX_PDF_BYTES) {
-          err = `"${f.name}" is too large (max ${Math.floor(MAX_PDF_BYTES / (1024 * 1024))}MB).`;
+        if (f.size > MAX_CHAT_FILE_BYTES_CLIENT) {
+          err = `"${f.name}" is too large (max ${Math.floor(MAX_CHAT_FILE_BYTES_CLIENT / (1024 * 1024))}MB).`;
           continue;
         }
-        if (next.length >= MAX_PDF_FILES) {
-          err = `You can attach up to ${MAX_PDF_FILES} PDFs.`;
+        if (next.length >= MAX_CHAT_ATTACHMENTS) {
+          err = `You can attach up to ${MAX_CHAT_ATTACHMENTS} files.`;
           break;
         }
         next.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, file: f });
@@ -270,11 +273,11 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     if (err) setError(err);
   }, []);
 
-  const sendMessage = useCallback(async (text: string, pdfs: File[] = []) => {
+  const sendMessage = useCallback(async (text: string, attached: File[] = []) => {
     const trimmed = text.trim();
-    if ((!trimmed && pdfs.length === 0) || isLoading) return;
+    if ((!trimmed && attached.length === 0) || isLoading) return;
 
-    const displayText = trimmed || (pdfs.length ? 'Use the attached PDF(s).' : '');
+    const displayText = trimmed || (attached.length ? 'Use the attached file(s).' : '');
 
     const activeSessionId = sessionId ?? crypto.randomUUID();
     if (!sessionId) {
@@ -286,7 +289,7 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
       role: 'user',
       content: displayText,
       attachments:
-        pdfs.length > 0 ? pdfs.map((f) => ({ name: f.name })) : undefined,
+        attached.length > 0 ? attached.map((f) => ({ name: f.name })) : undefined,
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -301,13 +304,17 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     let attachmentsPayload:
       | Array<{ name: string; mimeType: string; data: string }>
       | undefined;
-    if (pdfs.length > 0) {
+    if (attached.length > 0) {
       attachmentsPayload = await Promise.all(
-        pdfs.map(async (file) => ({
-          name: file.name,
-          mimeType: file.type || 'application/pdf',
-          data: await fileToBase64(file),
-        }))
+        attached.map(async (file) => {
+          const mime =
+            resolveChatAttachmentMime(file.name, file.type) ?? file.type.trim();
+          return {
+            name: file.name,
+            mimeType: mime || 'application/octet-stream',
+            data: await fileToBase64(file),
+          };
+        })
       );
     }
 
@@ -573,11 +580,11 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
-    const files = pdfItems.map((p) => p.file);
+    const files = attachmentItems.map((p) => p.file);
     if (!input.trim() && files.length === 0) return;
     const text = input;
     setInput('');
-    setPdfItems([]);
+    setAttachmentItems([]);
     void sendMessage(text, files);
   };
 
@@ -609,13 +616,13 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                   onInputChange={setInput}
                   onSubmit={handleSubmit}
                   onStop={handleStop}
-                  pdfItems={pdfItems}
-                  onPickPdf={() => pdfInputRef.current?.click()}
-                  onPdfInputChange={addPdfFiles}
-                  onRemovePdf={(id) =>
-                    setPdfItems((prev) => prev.filter((p) => p.id !== id))
+                  attachmentItems={attachmentItems}
+                  onPickAttachment={() => attachmentInputRef.current?.click()}
+                  onAttachmentInputChange={addAttachmentFiles}
+                  onRemoveAttachment={(id) =>
+                    setAttachmentItems((prev) => prev.filter((p) => p.id !== id))
                   }
-                  pdfInputRef={pdfInputRef}
+                  attachmentInputRef={attachmentInputRef}
                 />
               </div>
             </div>
@@ -731,11 +738,13 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
               onInputChange={setInput}
               onSubmit={handleSubmit}
               onStop={handleStop}
-              pdfItems={pdfItems}
-              onPickPdf={() => pdfInputRef.current?.click()}
-              onPdfInputChange={addPdfFiles}
-              onRemovePdf={(id) => setPdfItems((prev) => prev.filter((p) => p.id !== id))}
-              pdfInputRef={pdfInputRef}
+              attachmentItems={attachmentItems}
+              onPickAttachment={() => attachmentInputRef.current?.click()}
+              onAttachmentInputChange={addAttachmentFiles}
+              onRemoveAttachment={(id) =>
+                setAttachmentItems((prev) => prev.filter((p) => p.id !== id))
+              }
+              attachmentInputRef={attachmentInputRef}
             />
             <p className="mt-2.5 text-center text-[11px] text-neutral-600 dark:text-muted-foreground/90">
               Tip: name the board and a date range for sharper answers.
