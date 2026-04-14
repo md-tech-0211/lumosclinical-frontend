@@ -20,6 +20,12 @@ const EXT_TO_MIME: Record<string, string> = {
   ".xls": "application/vnd.ms-excel",
   ".xlsx":
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  // Common Excel variants (often uploaded from Windows / Office with different MIME).
+  ".xlsm": "application/vnd.ms-excel.sheet.macroenabled.12",
+  ".xlsb": "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+  ".xlt": "application/vnd.ms-excel",
+  ".xltx":
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
   ".txt": "text/plain",
   ".md": "text/markdown",
   ".html": "text/html",
@@ -37,6 +43,9 @@ const ALLOWED = new Set<string>([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel.sheet.macroenabled.12",
+  "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
   "text/plain",
   "text/markdown",
   "text/html",
@@ -96,6 +105,10 @@ export const CHAT_ATTACHMENT_ACCEPT = [
   ".docx",
   ".xls",
   ".xlsx",
+  ".xlsm",
+  ".xlsb",
+  ".xlt",
+  ".xltx",
   ".txt",
   ".md",
   ".html",

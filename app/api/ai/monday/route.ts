@@ -11,6 +11,12 @@ import { createAnalysisInvokePrepareStep } from "@/lib/analysis-invoke-prepare-s
 import { buildLumosMondaySearchTools } from "@/lib/lumos-monday-tools";
 import { ANALYSIS_FORM_BODY_RULES } from "@/lib/analysis-form-payload";
 import { isMondayTokenConfigured } from "@/lib/monday-name-filter-search";
+import {
+  ATTACHMENT_TYPE_ERROR_HINT,
+  MAX_CHAT_ATTACHMENTS,
+  MAX_CHAT_FILE_BYTES_SERVER,
+  resolveChatAttachmentMime,
+} from "@/lib/chat-attachments";
 
 export const runtime = "nodejs";
 /** Vercel: allow long Bedrock + MCP streams (Hobby plan max 10s unless upgraded). */
@@ -50,28 +56,25 @@ function sanitizeErrorForClient(raw: string): string {
   return t;
 }
 
-const MAX_PDF_ATTACHMENTS = 5;
-const MAX_PDF_BYTES = 12 * 1024 * 1024;
-
-type PdfAttachmentInput = {
+type ChatAttachmentInput = {
   name: string;
   mimeType: string;
   data: string;
 };
 
-function parsePdfAttachments(raw: unknown): PdfAttachmentInput[] | Response {
+function parseChatAttachments(raw: unknown): ChatAttachmentInput[] | Response {
   if (raw === undefined || raw === null) return [];
   if (!Array.isArray(raw)) {
     return jsonError(400, "attachments must be an array when provided.");
   }
-  if (raw.length > MAX_PDF_ATTACHMENTS) {
+  if (raw.length > MAX_CHAT_ATTACHMENTS) {
     return jsonError(
       400,
-      `Too many PDF attachments (max ${MAX_PDF_ATTACHMENTS}).`
+      `Too many attachments (max ${MAX_CHAT_ATTACHMENTS}).`
     );
   }
 
-  const out: PdfAttachmentInput[] = [];
+  const out: ChatAttachmentInput[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") {
       return jsonError(400, "Invalid attachment entry.");
@@ -85,9 +88,8 @@ function parsePdfAttachments(raw: unknown): PdfAttachmentInput[] | Response {
     if (typeof mimeType !== "string" || !mimeType.trim()) {
       return jsonError(400, "Each attachment must include a mimeType.");
     }
-    if (mimeType !== "application/pdf") {
-      return jsonError(400, "Only PDF attachments are supported right now.");
-    }
+    const resolved = resolveChatAttachmentMime(name.trim(), mimeType.trim());
+    if (!resolved) return jsonError(400, ATTACHMENT_TYPE_ERROR_HINT);
     if (typeof data !== "string" || !data.trim()) {
       return jsonError(400, "Each attachment must include base64 data.");
     }
@@ -101,24 +103,24 @@ function parsePdfAttachments(raw: unknown): PdfAttachmentInput[] | Response {
     if (buf.length === 0) {
       return jsonError(400, "Attachment data was empty.");
     }
-    if (buf.length > MAX_PDF_BYTES) {
+    if (buf.length > MAX_CHAT_FILE_BYTES_SERVER) {
       return jsonError(
         400,
         `Attachment "${name}" is too large (max ${Math.floor(
-          MAX_PDF_BYTES / (1024 * 1024)
+          MAX_CHAT_FILE_BYTES_SERVER / (1024 * 1024)
         )}MB).`
       );
     }
 
-    out.push({ name: name.trim(), mimeType: mimeType.trim(), data });
+    out.push({ name: name.trim(), mimeType: resolved, data });
   }
 
   return out;
 }
 
-function applyPdfAttachmentsToMessages(
+function applyChatAttachmentsToMessages(
   messages: ModelMessage[],
-  attachments: PdfAttachmentInput[]
+  attachments: ChatAttachmentInput[]
 ): ModelMessage[] {
   if (attachments.length === 0) return messages;
 
@@ -360,7 +362,7 @@ export async function POST(req: Request) {
     }
 
     const attachmentsRaw = (body as { attachments?: unknown }).attachments;
-    const parsedAttachments = parsePdfAttachments(attachmentsRaw);
+    const parsedAttachments = parseChatAttachments(attachmentsRaw);
     if (parsedAttachments instanceof Response) {
       return parsedAttachments;
     }
@@ -484,7 +486,7 @@ export async function POST(req: Request) {
       currentTime
     );
 
-    const modelMessages = applyPdfAttachmentsToMessages(
+    const modelMessages = applyChatAttachmentsToMessages(
       messages as ModelMessage[],
       parsedAttachments
     );
