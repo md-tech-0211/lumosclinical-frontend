@@ -175,6 +175,9 @@ Current time: ${currentTime} UTC`;
 - **After Monday tools:** If you successfully loaded a row with \`monday_get_item\` (or equivalent) and the user asked analysis/eligibility, call \`analysis_invoke\` with the **canonical form JSON** in \`body\` — before a long narrative. This deployment may **suggest** the next step — comply when you have payload data. **Never** call \`analysis_invoke\` with an empty or fabricated payload.
 - **Payload:** One JSON object in \`body\` — not markdown. ${ANALYSIS_FORM_BODY_RULES}
 - **Monday + analysis:** Build the payload from **New general ps form** (form board) when fetching prescreen fields. Pasted inline form → map into \`body\` and call \`analysis_invoke\` without needing Monday first, unless they also ask to find the row.
+- **Output format requirement:** After \`analysis_invoke\` returns, always include:
+  - **Eligibility**: Eligible / Ineligible / Pending (or whatever the API says).
+  - **Why**: 2–6 short bullet points explaining *why* based strictly on the API response fields (e.g. reasons, rule hits, failed criteria). If the API does not return reasons, say “No reasons provided by the analysis service” (do not invent).
 - **Conclusions** come from the API response only — no invented multi-protocol write-ups. Short user-facing summary after \`data\`. If \`ok: false\`, say so.
 
 `
