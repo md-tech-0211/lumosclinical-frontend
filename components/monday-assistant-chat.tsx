@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
@@ -203,6 +204,8 @@ export type MondayAssistantChatProps = {
 };
 
 export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [input, setInput] = useState('');
   const [attachmentItems, setAttachmentItems] = useState<AttachmentPick[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -235,6 +238,33 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     }
     setError(null);
   }, [initialSessionId]);
+
+  // If the currently-open session is deleted (sidebar / other tab), reset to a new chat.
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const handleMaybeDeleted = () => {
+      const stillExists = Boolean(getSession(sessionId));
+      if (stillExists) return;
+
+      setMessages([]);
+      setAttachmentItems([]);
+      setInput('');
+      setError(null);
+      setSessionId(null);
+
+      if ((pathname ?? '').startsWith(`/chats/${sessionId}`)) {
+        router.push(`/?new=${Date.now()}`);
+      }
+    };
+
+    window.addEventListener('luna-chat-sessions-changed', handleMaybeDeleted);
+    window.addEventListener('storage', handleMaybeDeleted);
+    return () => {
+      window.removeEventListener('luna-chat-sessions-changed', handleMaybeDeleted);
+      window.removeEventListener('storage', handleMaybeDeleted);
+    };
+  }, [pathname, router, sessionId]);
 
   useEffect(() => {
     if (!sessionId || messages.length === 0) return;

@@ -64,7 +64,7 @@ export function SidebarRecentChats() {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const wasOpen = pathname === `/chats/${s.id}`;
+                const wasOpen = (pathname ?? "").startsWith(`/chats/${s.id}`);
                 deleteSession(s.id);
                 refresh();
                 if (wasOpen) {
