@@ -1,46 +1,21 @@
 /**
  * Contract for POST `body` to the analysis service (`analysis_invoke`).
- * The backend expects **one JSON object** with these keys (use `""`, `0`, or enum literals when unknown).
+ * - **One row:** a plain JSON object (column ids or titles → cell values).
+ * - **Several candidates:** `{ "candidates": [ { ... }, { ... } ] }` — each element is one row in the same shape.
+ * No fixed column schema; serialize whatever the table has.
  */
-export const ANALYSIS_FORM_PAYLOAD_KEYS = [
-  "subject_name",
-  "pre_screen_status",
-  "date_of_call",
-  "phone_number",
-  "email",
-  "dob",
-  "age",
-  "gender",
-  "height_in",
-  "weight_lbs",
-  "bmi",
-  "is_adult",
-  "willing_to_travel",
-  "contraception_agreement",
-  "current_medications",
-  "can_stop_medication",
-  "alcohol_use",
-  "drug_use",
-  "smoking",
-  "previous_trials",
-  "ai_analysis_link",
-  "transcript",
-  "last_updated",
-  "item_id",
-] as const;
 
-/** One-line example for prompts (valid JSON). */
-export const ANALYSIS_FORM_BODY_EXAMPLE = `{"subject_name":"Jane Doe","pre_screen_status":"Pending","date_of_call":"","phone_number":"","email":"","dob":"1990-01-01","age":35,"gender":"Female","height_in":0,"weight_lbs":0,"bmi":0,"is_adult":"Yes","willing_to_travel":"No","contraception_agreement":"","current_medications":"","can_stop_medication":"","alcohol_use":"","drug_use":"","smoking":"","previous_trials":"","ai_analysis_link":"","transcript":"","last_updated":"","item_id":""}`;
+/** One row; keys mirror the board/table columns. */
+export const ANALYSIS_FORM_BODY_SINGLE_EXAMPLE = `{"subject_name":"Jane Doe","pre_screen_status":"Pending","item_id":"12345"}`;
+
+/** Multiple rows in one request. */
+export const ANALYSIS_FORM_BODY_MULTI_EXAMPLE = `{"candidates":[{"subject_name":"Jane Doe","item_id":"1"},{"subject_name":"John Smith","item_id":"2"}]}`;
+
+/** Back-compat: short line used in prompts (single + multi). */
+export const ANALYSIS_FORM_BODY_EXAMPLE = `${ANALYSIS_FORM_BODY_SINGLE_EXAMPLE} · Multi: ${ANALYSIS_FORM_BODY_MULTI_EXAMPLE}`;
 
 /** Short instruction block for prompts and tool descriptions. */
-export const ANALYSIS_FORM_BODY_RULES = `POST \`body\` must be a **plain JSON object** (not a string, not markdown). Include **every** key below; map Monday column labels into these names; use empty string \`""\` or \`0\` when unknown. Do **not** wrap the object in \`\`\` fences. Example shape (same keys, your values): ${ANALYSIS_FORM_BODY_EXAMPLE}
-- \`subject_name\` (string)
-- \`pre_screen_status\`: exactly \`"Eligible"\`, \`"Ineligible"\`, or \`"Pending"\`
-- \`date_of_call\`, \`dob\`, \`last_updated\`: \`"YYYY-MM-DD"\` or \`""\`
-- \`phone_number\`, \`email\`, \`current_medications\`, \`ai_analysis_link\`, \`transcript\`, \`item_id\`: strings
-- \`age\`, \`height_in\`, \`weight_lbs\`, \`bmi\`: numbers (use \`0\` if missing)
-- \`gender\`: \`"Male"\` | \`"Female"\` | \`"Other"\`
-- \`is_adult\`, \`willing_to_travel\`, \`contraception_agreement\`, \`can_stop_medication\`, \`alcohol_use\`, \`drug_use\`, \`smoking\`, \`previous_trials\`: \`"Yes"\` or \`"No"\` (or \`""\` if truly unknown)`;
+export const ANALYSIS_FORM_BODY_RULES = `POST \`body\` must be **plain JSON** (not a string, not markdown). **One candidate:** a single object — **keys** = column identifiers from the Monday board / table (or normalized titles), **values** = cell values (strings, numbers, booleans as appropriate). **Multiple candidates:** send \`{"candidates":[{...},{...}]}\` — each array element is one full row object (same key shape). Include every field you have per row; use empty string \`""\` or \`0\` when unknown. Do **not** wrap in \`\`\` fences. Examples — one row: ${ANALYSIS_FORM_BODY_SINGLE_EXAMPLE}. Several rows: ${ANALYSIS_FORM_BODY_MULTI_EXAMPLE}`;
 
 /**
  * Strips ```json fences, parses string bodies, and returns a value safe to JSON.stringify once.

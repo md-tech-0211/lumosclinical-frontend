@@ -29,7 +29,9 @@ export const analysisInvokeInputSchema = z.object({
   body: z
     .unknown()
     .optional()
-    .describe("Optional JSON body for POST or PUT."),
+    .describe(
+      "Optional JSON for POST/PUT: one row object (column keys → values), or { candidates: [ row, ... ] } for multiple."
+    ),
 });
 
 export type AnalysisInvokeInput = z.infer<typeof analysisInvokeInputSchema>;

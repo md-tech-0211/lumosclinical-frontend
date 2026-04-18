@@ -174,8 +174,8 @@ Current time: ${currentTime} UTC`;
 
   const analysisBlock = analysisInvoke
     ? `**\`analysis_invoke\` — when the user asks for analysis or eligibility:** If the user’s message includes **analysis**, **analyze**, **eligibility**, **eligible**, **ineligible**, **qualify**, **qualification**, **prescreen** (when asking for judgment/review of a candidate), **“do analysis”**, **“check eligibility”**, or close paraphrases — call \`analysis_invoke\` (POST \`body\`) **only when you have real data to send** (pasted form fields, or a Monday item with enough columns). **Do not** call \`analysis_invoke\` if a name search / list returned **no matching rows**, **not found**, or empty results — tell the user clearly that no data was found instead.
-- **After Monday tools:** If you successfully loaded a row with \`monday_get_item\` (or equivalent) and the user asked analysis/eligibility, call \`analysis_invoke\` with the **canonical form JSON** in \`body\` — before a long narrative. This deployment may **suggest** the next step — comply when you have payload data. **Never** call \`analysis_invoke\` with an empty or fabricated payload.
-- **Payload:** One JSON object in \`body\` — not markdown. ${ANALYSIS_FORM_BODY_RULES}
+- **After Monday tools:** If you loaded one or more rows and the user asked analysis/eligibility, call \`analysis_invoke\` **before** a long narrative: **one row** → single JSON object in \`body\` (column keys → values); **several rows** → \`{"candidates":[{...},{...}]}\` with one object per row. This deployment may **suggest** the next step — comply when you have payload data. **Never** call \`analysis_invoke\` with an empty or fabricated payload.
+- **Payload:** Plain JSON in \`body\` — not markdown. ${ANALYSIS_FORM_BODY_RULES}
 - **Monday + analysis:** Build the payload from **New general ps form** (form board) when fetching prescreen fields. Pasted inline form → map into \`body\` and call \`analysis_invoke\` without needing Monday first, unless they also ask to find the row.
 - **Output format requirement:** After \`analysis_invoke\` returns, always include:
   - **Eligibility**: Eligible / Ineligible / Pending (or whatever the API says).
@@ -185,7 +185,7 @@ Current time: ${currentTime} UTC`;
 `
     : "";
 
-  const personFormAnalysisBlock = `**Person + form + PDF:** Pasted form fields or PDF → ${analysisInvoke ? `\`analysis_invoke\` with canonical JSON; do not run Monday first unless they also want the row found.` : `assess from content.`} Name + analysis/eligibility without paste → find the row on **New general ps form** only (see board routing), \`monday_get_item\`, then ${analysisInvoke ? `\`analysis_invoke\` **only if** a row was found with usable fields — if **not found**, stop; no \`analysis_invoke\`.` : `answer from columns.`} Multiple name matches → describe ambiguity; ask user; do not guess. PDF in thread → ${analysisInvoke ? `map into \`analysis_invoke\` body.` : `assess from the file and/or Monday columns.`}
+  const personFormAnalysisBlock = `**Person + form + PDF:** Pasted form fields or PDF → ${analysisInvoke ? `\`analysis_invoke\` with row(s) as JSON (keys → values), or \`{"candidates":[...]}\` if multiple; do not run Monday first unless they also want the row found.` : `assess from content.`} Name + analysis/eligibility without paste → find the row on **New general ps form** only (see board routing), \`monday_get_item\`, then ${analysisInvoke ? `\`analysis_invoke\` **only if** a row was found with usable fields — if **not found**, stop; no \`analysis_invoke\`.` : `answer from columns.`} Multiple name matches → describe ambiguity; if the user wants everyone analyzed and you have multiple items, send **all** in \`candidates\`; otherwise ask which row. PDF in thread → ${analysisInvoke ? `map into \`analysis_invoke\` body as JSON (or \`candidates\`).` : `assess from the file and/or Monday columns.`}
 
 `;
 

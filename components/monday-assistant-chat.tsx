@@ -70,10 +70,8 @@ function ChatComposer({
   onSubmit,
   onStop,
   attachmentItems,
-  onPickAttachment,
   onAttachmentInputChange,
   onRemoveAttachment,
-  attachmentInputRef,
 }: {
   isLoading: boolean;
   input: string;
@@ -81,10 +79,8 @@ function ChatComposer({
   onSubmit: (e: React.FormEvent) => void;
   onStop: () => void;
   attachmentItems: AttachmentPick[];
-  onPickAttachment: () => void;
   onAttachmentInputChange: (files: FileList | null) => void;
   onRemoveAttachment: (id: string) => void;
-  attachmentInputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const canSend = input.trim().length > 0 || attachmentItems.length > 0;
 
@@ -114,11 +110,11 @@ function ChatComposer({
 
       <form onSubmit={onSubmit} className="flex items-end">
         <input
-          ref={attachmentInputRef}
+          id="chat-attachment-input"
           type="file"
           accept={CHAT_ATTACHMENT_ACCEPT}
           multiple
-          className="hidden"
+          className="sr-only"
           onChange={(e) => {
             onAttachmentInputChange(e.target.files);
             e.target.value = '';
@@ -127,18 +123,16 @@ function ChatComposer({
 
         <div className="relative flex-1">
           {/* Buttons must sit above the full-width input in the stacking order, or the input steals clicks */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
-            disabled={isLoading}
-            onClick={onPickAttachment}
+          <label
+            htmlFor="chat-attachment-input"
             aria-label="Attach file"
-            suppressHydrationWarning
+            className={cn(
+              "absolute left-2 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground",
+              isLoading && "pointer-events-none opacity-40"
+            )}
           >
             <Plus className="h-5 w-5" />
-          </Button>
+          </label>
 
           {isLoading ? (
             <Button
@@ -215,7 +209,6 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<ChatMessage[]>(messages);
   const abortRef = useRef<AbortController | null>(null);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   messagesRef.current = messages;
 
@@ -647,12 +640,10 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                   onSubmit={handleSubmit}
                   onStop={handleStop}
                   attachmentItems={attachmentItems}
-                  onPickAttachment={() => attachmentInputRef.current?.click()}
                   onAttachmentInputChange={addAttachmentFiles}
                   onRemoveAttachment={(id) =>
                     setAttachmentItems((prev) => prev.filter((p) => p.id !== id))
                   }
-                  attachmentInputRef={attachmentInputRef}
                 />
               </div>
             </div>
@@ -769,12 +760,10 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
               onSubmit={handleSubmit}
               onStop={handleStop}
               attachmentItems={attachmentItems}
-              onPickAttachment={() => attachmentInputRef.current?.click()}
               onAttachmentInputChange={addAttachmentFiles}
               onRemoveAttachment={(id) =>
                 setAttachmentItems((prev) => prev.filter((p) => p.id !== id))
               }
-              attachmentInputRef={attachmentInputRef}
             />
             <p className="mt-2.5 text-center text-[11px] text-neutral-600 dark:text-muted-foreground/90">
               Tip: name the board and a date range for sharper answers.
