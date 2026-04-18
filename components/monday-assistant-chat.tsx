@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
@@ -69,10 +70,8 @@ function ChatComposer({
   onSubmit,
   onStop,
   attachmentItems,
-  onPickAttachment,
   onAttachmentInputChange,
   onRemoveAttachment,
-  attachmentInputRef,
 }: {
   isLoading: boolean;
   input: string;
@@ -80,10 +79,8 @@ function ChatComposer({
   onSubmit: (e: React.FormEvent) => void;
   onStop: () => void;
   attachmentItems: AttachmentPick[];
-  onPickAttachment: () => void;
   onAttachmentInputChange: (files: FileList | null) => void;
   onRemoveAttachment: (id: string) => void;
-  attachmentInputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const canSend = input.trim().length > 0 || attachmentItems.length > 0;
 
@@ -112,32 +109,32 @@ function ChatComposer({
       )}
 
       <form onSubmit={onSubmit} className="flex items-end">
-        <input
-          ref={attachmentInputRef}
-          type="file"
-          accept={CHAT_ATTACHMENT_ACCEPT}
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            onAttachmentInputChange(e.target.files);
-            e.target.value = '';
-          }}
-        />
-
-        <div className="relative flex-1">
-          {/* Buttons must sit above the full-width input in the stacking order, or the input steals clicks */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute left-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
-            disabled={isLoading}
-            onClick={onPickAttachment}
+        <div className="relative z-0 flex-1">
+          {/*
+            File input is inside the label so activation does not depend on htmlFor + id.
+            The text field must stay below the overlay controls in the stacking order, or its
+            full-width hit target steals clicks on the left (pl-14) — especially in the footer composer.
+          */}
+          <label
             aria-label="Attach file"
-            suppressHydrationWarning
+            className={cn(
+              "absolute left-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground",
+              isLoading && "pointer-events-none opacity-40"
+            )}
           >
-            <Plus className="h-5 w-5" />
-          </Button>
+            <input
+              type="file"
+              accept={CHAT_ATTACHMENT_ACCEPT}
+              multiple
+              disabled={isLoading}
+              className="sr-only"
+              onChange={(e) => {
+                onAttachmentInputChange(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <Plus className="h-5 w-5 shrink-0" aria-hidden />
+          </label>
 
           {isLoading ? (
             <Button
@@ -145,7 +142,7 @@ function ChatComposer({
               variant="ghost"
               size="icon"
               onClick={onStop}
-              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-muted/70 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+              className="absolute right-2 top-1/2 z-20 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-muted/70 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
               aria-label="Stop generating"
             >
               <Square className="h-5 w-5" />
@@ -156,7 +153,7 @@ function ChatComposer({
               variant="ghost"
               size="icon"
               disabled={!canSend}
-              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+              className="absolute right-2 top-1/2 z-20 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
               aria-label="Send message"
             >
               <Send className="h-5 w-5" />
@@ -168,7 +165,7 @@ function ChatComposer({
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             disabled={isLoading}
-            className="h-12 w-full rounded-2xl border-sky-200/50 bg-white/90 pl-14 pr-14 text-slate-900 shadow-[inset_0_1px_2px_hsl(0_0%_0%/0.04)] backdrop-blur-sm transition-shadow placeholder:text-slate-500 focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-border/60 dark:bg-background/50 dark:text-foreground dark:placeholder:text-muted-foreground"
+            className="relative z-0 h-12 w-full rounded-2xl border-sky-200/50 bg-white/90 pl-14 pr-14 text-slate-900 shadow-[inset_0_1px_2px_hsl(0_0%_0%/0.04)] backdrop-blur-sm transition-shadow placeholder:text-slate-500 focus-visible:z-10 focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-border/60 dark:bg-background/50 dark:text-foreground dark:placeholder:text-muted-foreground"
             suppressHydrationWarning
           />
         </div>
@@ -203,6 +200,8 @@ export type MondayAssistantChatProps = {
 };
 
 export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [input, setInput] = useState('');
   const [attachmentItems, setAttachmentItems] = useState<AttachmentPick[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -212,7 +211,6 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<ChatMessage[]>(messages);
   const abortRef = useRef<AbortController | null>(null);
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   messagesRef.current = messages;
 
@@ -236,6 +234,33 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
     setError(null);
   }, [initialSessionId]);
 
+  // If the currently-open session is deleted (sidebar / other tab), reset to a new chat.
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const handleMaybeDeleted = () => {
+      const stillExists = Boolean(getSession(sessionId));
+      if (stillExists) return;
+
+      setMessages([]);
+      setAttachmentItems([]);
+      setInput('');
+      setError(null);
+      setSessionId(null);
+
+      if ((pathname ?? '').startsWith(`/chats/${sessionId}`)) {
+        router.push(`/?new=${Date.now()}`);
+      }
+    };
+
+    window.addEventListener('luna-chat-sessions-changed', handleMaybeDeleted);
+    window.addEventListener('storage', handleMaybeDeleted);
+    return () => {
+      window.removeEventListener('luna-chat-sessions-changed', handleMaybeDeleted);
+      window.removeEventListener('storage', handleMaybeDeleted);
+    };
+  }, [pathname, router, sessionId]);
+
   useEffect(() => {
     if (!sessionId || messages.length === 0) return;
     upsertSession({
@@ -248,11 +273,14 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
   const addAttachmentFiles = useCallback((files: FileList | null) => {
     if (!files?.length) return;
+    // Snapshot immediately: `onChange` clears `e.target.value` after this returns, which can
+    // empty the live FileList before React runs the setState updater (worse with deep trees / used chat).
+    const picked = Array.from(files);
     setError(null);
     let err: string | null = null;
     setAttachmentItems((prev) => {
       const next = [...prev];
-      for (const f of Array.from(files)) {
+      for (const f of picked) {
         const mime = resolveChatAttachmentMime(f.name, f.type);
         if (!mime) {
           err = ATTACHMENT_TYPE_ERROR_HINT;
@@ -617,12 +645,10 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
                   onSubmit={handleSubmit}
                   onStop={handleStop}
                   attachmentItems={attachmentItems}
-                  onPickAttachment={() => attachmentInputRef.current?.click()}
                   onAttachmentInputChange={addAttachmentFiles}
                   onRemoveAttachment={(id) =>
                     setAttachmentItems((prev) => prev.filter((p) => p.id !== id))
                   }
-                  attachmentInputRef={attachmentInputRef}
                 />
               </div>
             </div>
@@ -739,12 +765,10 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
               onSubmit={handleSubmit}
               onStop={handleStop}
               attachmentItems={attachmentItems}
-              onPickAttachment={() => attachmentInputRef.current?.click()}
               onAttachmentInputChange={addAttachmentFiles}
               onRemoveAttachment={(id) =>
                 setAttachmentItems((prev) => prev.filter((p) => p.id !== id))
               }
-              attachmentInputRef={attachmentInputRef}
             />
             <p className="mt-2.5 text-center text-[11px] text-neutral-600 dark:text-muted-foreground/90">
               Tip: name the board and a date range for sharper answers.

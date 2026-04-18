@@ -31,7 +31,7 @@ export function buildAnalysisInvokeTool(): ToolSet {
 
   return {
     analysis_invoke: tool({
-      description: `**Required** when the user wants analysis/eligibility on a prescreen form. Call **before** any long reply. Use \`method: "POST"\` and put the case in \`body\` as the analysis service’s **canonical form JSON** (all keys, real values from Monday or paste). ${ANALYSIS_FORM_BODY_RULES} **Never** write a “COMPREHENSIVE FORM ANALYSIS” instead of calling this tool—summarize **only** the JSON returned in \`data\` (short). Base: \`ANALYSIS_FUNCTION_URL\`.`,
+      description: `**Required** when the user wants analysis/eligibility on a prescreen form. Call **before** any long reply. Use \`method: "POST"\` and put data in \`body\`: **one JSON object** per row (column keys → values), or **several candidates** as \`{"candidates":[{...},{...}]}\` from Monday or paste. ${ANALYSIS_FORM_BODY_RULES} **Never** write a “COMPREHENSIVE FORM ANALYSIS” instead of calling this tool—summarize **only** the JSON returned in \`data\` (short). Base: \`ANALYSIS_FUNCTION_URL\`.`,
       inputSchema: analysisInvokeInputSchema,
       execute: async (args) => {
         const result = await runAnalysisInvokeHttp(args, {
