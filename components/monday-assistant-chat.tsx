@@ -109,29 +109,31 @@ function ChatComposer({
       )}
 
       <form onSubmit={onSubmit} className="flex items-end">
-        <input
-          id="chat-attachment-input"
-          type="file"
-          accept={CHAT_ATTACHMENT_ACCEPT}
-          multiple
-          className="sr-only"
-          onChange={(e) => {
-            onAttachmentInputChange(e.target.files);
-            e.target.value = '';
-          }}
-        />
-
-        <div className="relative flex-1">
-          {/* Buttons must sit above the full-width input in the stacking order, or the input steals clicks */}
+        <div className="relative z-0 flex-1">
+          {/*
+            File input is inside the label so activation does not depend on htmlFor + id.
+            The text field must stay below the overlay controls in the stacking order, or its
+            full-width hit target steals clicks on the left (pl-14) — especially in the footer composer.
+          */}
           <label
-            htmlFor="chat-attachment-input"
             aria-label="Attach file"
             className={cn(
-              "absolute left-2 top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground",
+              "absolute left-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground",
               isLoading && "pointer-events-none opacity-40"
             )}
           >
-            <Plus className="h-5 w-5" />
+            <input
+              type="file"
+              accept={CHAT_ATTACHMENT_ACCEPT}
+              multiple
+              disabled={isLoading}
+              className="sr-only"
+              onChange={(e) => {
+                onAttachmentInputChange(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <Plus className="h-5 w-5 shrink-0" aria-hidden />
           </label>
 
           {isLoading ? (
@@ -140,7 +142,7 @@ function ChatComposer({
               variant="ghost"
               size="icon"
               onClick={onStop}
-              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-muted/70 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+              className="absolute right-2 top-1/2 z-20 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-muted/70 hover:text-slate-900 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
               aria-label="Stop generating"
             >
               <Square className="h-5 w-5" />
@@ -151,7 +153,7 @@ function ChatComposer({
               variant="ghost"
               size="icon"
               disabled={!canSend}
-              className="absolute right-2 top-1/2 z-10 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
+              className="absolute right-2 top-1/2 z-20 h-9 w-9 -translate-y-1/2 rounded-xl text-slate-600 hover:bg-primary/12 hover:text-slate-900 disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-muted/70 dark:hover:text-foreground"
               aria-label="Send message"
             >
               <Send className="h-5 w-5" />
@@ -163,7 +165,7 @@ function ChatComposer({
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             disabled={isLoading}
-            className="h-12 w-full rounded-2xl border-sky-200/50 bg-white/90 pl-14 pr-14 text-slate-900 shadow-[inset_0_1px_2px_hsl(0_0%_0%/0.04)] backdrop-blur-sm transition-shadow placeholder:text-slate-500 focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-border/60 dark:bg-background/50 dark:text-foreground dark:placeholder:text-muted-foreground"
+            className="relative z-0 h-12 w-full rounded-2xl border-sky-200/50 bg-white/90 pl-14 pr-14 text-slate-900 shadow-[inset_0_1px_2px_hsl(0_0%_0%/0.04)] backdrop-blur-sm transition-shadow placeholder:text-slate-500 focus-visible:z-10 focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-border/60 dark:bg-background/50 dark:text-foreground dark:placeholder:text-muted-foreground"
             suppressHydrationWarning
           />
         </div>
@@ -271,11 +273,14 @@ export function MondayAssistantChat({ initialSessionId }: MondayAssistantChatPro
 
   const addAttachmentFiles = useCallback((files: FileList | null) => {
     if (!files?.length) return;
+    // Snapshot immediately: `onChange` clears `e.target.value` after this returns, which can
+    // empty the live FileList before React runs the setState updater (worse with deep trees / used chat).
+    const picked = Array.from(files);
     setError(null);
     let err: string | null = null;
     setAttachmentItems((prev) => {
       const next = [...prev];
-      for (const f of Array.from(files)) {
+      for (const f of picked) {
         const mime = resolveChatAttachmentMime(f.name, f.type);
         if (!mime) {
           err = ATTACHMENT_TYPE_ERROR_HINT;
