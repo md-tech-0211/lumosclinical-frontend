@@ -1,6 +1,6 @@
 import { createMCPClient } from "@ai-sdk/mcp";
 import { Buffer } from "node:buffer";
-import { streamText, stepCountIs } from "ai";
+import { generateText, streamText, stepCountIs } from "ai";
 import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type { ModelMessage, ToolSet } from "ai";
 import {
@@ -15,8 +15,18 @@ import {
   ATTACHMENT_TYPE_ERROR_HINT,
   MAX_CHAT_ATTACHMENTS,
   MAX_CHAT_FILE_BYTES_SERVER,
+  effectiveMondayChatMaxPdfPages,
   resolveChatAttachmentMime,
 } from "@/lib/chat-attachments";
+import {
+  BEDROCK_PROMPT_FIT_TARGET_TOKENS,
+  isPromptTooLongError,
+  parseReportedPromptTokens,
+} from "@/lib/bedrock-prompt-limit";
+import {
+  clampPdfToMaxPages,
+  PDF_PAGE_COUNT_UNKNOWN,
+} from "@/lib/pdf-page-count";
 
 export const runtime = "nodejs";
 /** Vercel: allow long Bedrock + MCP streams (Hobby plan max 10s unless upgraded). */
@@ -61,6 +71,18 @@ type ChatAttachmentInput = {
   mimeType: string;
   data: string;
 };
+
+/**
+ * Bedrock document names must only use alphanumeric characters, whitespace, hyphens,
+ * parentheses, and square brackets, with no consecutive whitespace (ValidationException).
+ */
+function sanitizeBedrockDocumentFileName(name: string): string {
+  let s = name.replace(/[^a-zA-Z0-9 \-()\u005B\u005D]+/g, "-");
+  s = s.replace(/-+/g, "-");
+  s = s.replace(/ +/g, " ");
+  s = s.replace(/^[\s-]+|[\s-]+$/g, "");
+  return s || "document";
+}
 
 function parseChatAttachments(raw: unknown): ChatAttachmentInput[] | Response {
   if (raw === undefined || raw === null) return [];
@@ -151,7 +173,7 @@ function applyChatAttachmentsToMessages(
       type: "file",
       data: Buffer.from(a.data, "base64"),
       mediaType: a.mimeType,
-      filename: a.name,
+      filename: sanitizeBedrockDocumentFileName(a.name),
     });
   }
 
@@ -173,8 +195,11 @@ Current date: ${currentDate} (${currentDayOfWeek})
 Current time: ${currentTime} UTC`;
 
   const analysisBlock = analysisInvoke
-    ? `**\`analysis_invoke\` — when the user asks for analysis or eligibility:** If the user’s message includes **analysis**, **analyze**, **eligibility**, **eligible**, **ineligible**, **qualify**, **qualification**, **prescreen** (when asking for judgment/review of a candidate), **“do analysis”**, **“check eligibility”**, or close paraphrases — call \`analysis_invoke\` (POST \`body\`) **only when you have real data to send** (pasted form fields, or a Monday item with enough columns). **Do not** call \`analysis_invoke\` if a name search / list returned **no matching rows**, **not found**, or empty results — tell the user clearly that no data was found instead.
+    ? `**\`analysis_invoke\` vs in-thread analysis:** The \`analysis_invoke\` tool calls your **deployed prescreen/eligibility API** with structured form JSON. **Do not** use it when the user wants **only** a **document-based** review: e.g. they attached a **protocol** (or study PDF) plus **patient/case** data and ask you to **compare**, **check compliance**, **review inclusion/exclusion**, or **analyze** using **those files** — including when they say **not** to use the API/tool, **not** to fetch Monday, or to **analyze yourself** from the attachments. In that case, read the **file contents** in the thread and answer **directly** (clearly label limitations vs a formal eligibility system). Use Monday tools **only** if they explicitly ask you to **look up a live board row**.
+
+**\`analysis_invoke\` — when the user asks for the eligibility API path:** If the user’s message includes **analysis**, **analyze**, **eligibility**, **eligible**, **ineligible**, **qualify**, **qualification**, **prescreen** (when asking for judgment/review of a candidate), **“do analysis”**, **“check eligibility”**, or close paraphrases — call \`analysis_invoke\` (POST \`body\`) **only when** that API path applies and you have **real data to send** (pasted form fields, or a Monday item with enough columns). **Do not** call \`analysis_invoke\` if a name search / list returned **no matching rows**, **not found**, or empty results — tell the user clearly that no data was found instead.
 - **After Monday tools:** If you loaded one or more rows and the user asked analysis/eligibility, call \`analysis_invoke\` **before** a long narrative: **one row** → single JSON object in \`body\` (column keys → values); **several rows** → \`{"candidates":[{...},{...}]}\` with one object per row. This deployment may **suggest** the next step — comply when you have payload data. **Never** call \`analysis_invoke\` with an empty or fabricated payload.
+- **Spreadsheets (CSV, Excel .xlsx, etc.):** If the user attached a **table of candidates** and wants analysis / eligibility for **the file**, include **every** non-header data row you can read in \`{"candidates":[...]}\` (**one object per row**). **Do not** arbitrarily take only the “first N” or “first few complete” rows unless the user explicitly asked for a limit or sample — if you must skip a row (blank, garbled, duplicate header), say **which row(s)** and why.
 - **Payload:** Plain JSON in \`body\` — not markdown. ${ANALYSIS_FORM_BODY_RULES}
 - **Monday + analysis:** Build the payload from **New general ps form** (form board) when fetching prescreen fields. Pasted inline form → map into \`body\` and call \`analysis_invoke\` without needing Monday first, unless they also ask to find the row.
 - **Output format requirement:** After \`analysis_invoke\` returns, always include:
@@ -185,7 +210,15 @@ Current time: ${currentTime} UTC`;
 `
     : "";
 
-  const personFormAnalysisBlock = `**Person + form + PDF:** Pasted form fields or PDF → ${analysisInvoke ? `\`analysis_invoke\` with row(s) as JSON (keys → values), or \`{"candidates":[...]}\` if multiple; do not run Monday first unless they also want the row found.` : `assess from content.`} Name + analysis/eligibility without paste → find the row on **New general ps form** only (see board routing), \`monday_get_item\`, then ${analysisInvoke ? `\`analysis_invoke\` **only if** a row was found with usable fields — if **not found**, stop; no \`analysis_invoke\`.` : `answer from columns.`} Multiple name matches → describe ambiguity; if the user wants everyone analyzed and you have multiple items, send **all** in \`candidates\`; otherwise ask which row. PDF in thread → ${analysisInvoke ? `map into \`analysis_invoke\` body as JSON (or \`candidates\`).` : `assess from the file and/or Monday columns.`}
+  const personFormAnalysisBlock = `**Person + form + PDF:** Pasted form fields or PDF → ${analysisInvoke ? `use \`analysis_invoke\` with row(s) as JSON (keys → values), or \`{"candidates":[...]}\` **when** the user expects the **prescreen/eligibility API** result — **not** when they asked for **protocol/file-only** analysis (see above). Do not run Monday first unless they also want the row found.` : `assess from content.`} Name + analysis/eligibility without paste → find the row on **New general ps form** only (see board routing), \`monday_get_item\`, then ${analysisInvoke ? `\`analysis_invoke\` **only if** a row was found with usable fields — if **not found**, stop; no \`analysis_invoke\`.` : `answer from columns.`} Multiple name matches → describe ambiguity; if the user wants everyone analyzed and you have multiple items, send **all** in \`candidates\`; otherwise ask which row. PDF / protocol in thread → ${analysisInvoke ? `if they want the **API**, map into \`analysis_invoke\` body; if they want **review vs protocol / your assessment from files**, answer from the documents without \`analysis_invoke\`.` : `assess from the file and/or Monday columns.`}
+
+`;
+
+  const protocolPlusMondayBlock = `**Protocol summary + Monday (typical workflow):** The user may attach a **short protocol PDF** (e.g. one-page summary) and ask you to **analyze** a case using **Monday data**. Use the **smallest** Monday lookups needed (\`get_board_items_by_name\` → \`monday_get_item\`, etc.), then answer **in this chat** by combining **what’s in the attachment** with **columns you fetched**. Treat the uploaded protocol as **context for this conversation only** — you are not assumed to have the full study file elsewhere.${analysisInvoke ? ` **Do not** call \`analysis_invoke\` for this workflow unless the user clearly wants the **automated prescreen/eligibility API** result; a structured narrative from protocol + Monday is the default.` : ``}
+
+**Protocol PDF already in the thread:** If a **protocol or summary PDF** was attached in an **earlier message**, it still counts as the protocol context for **later questions** in the same chat (e.g. “now fetch Monday and analyze”). Continue with **in-chat** analysis against that document; **do not** call \`analysis_invoke\` unless the user explicitly asks for the **prescreen/eligibility API** / \`analysis_invoke\`.
+
+**Evaluation gaps → follow-up questions:** After you synthesize, if assessment is incomplete, add a **numbered list** of **specific** questions or missing facts (labs, dates, staging, prior lines, pregnancy, con meds, consent, I/E criteria not visible in Monday or the PDF) that someone would still need to answer to evaluate the case. Keep questions practical for coordinators; skip the list only when you already have enough to conclude.
 
 `;
 
@@ -226,7 +259,7 @@ Always respond in clear, simple language.`;
 `
     : "";
 
-  return `${limitedMcpNote}${analysisBlock}You are a Monday.com assistant. Use tools in this session to answer from Monday data. ${analysisInvoke ? `Call \`analysis_invoke\` for **analysis** / **eligibility** only when you have **actual form or item data** — not when lookups returned nothing.` : ``} For general non-Monday questions, answer from general knowledge or say you cannot browse.
+  return `${limitedMcpNote}${analysisBlock}You are a Monday.com assistant. Use tools in this session to answer from Monday data when the user needs **live** board data. ${analysisInvoke ? `Call \`analysis_invoke\` only for the **eligibility API** path when you have **actual form or item payload** — not for protocol/document-only review, and not when lookups returned nothing.` : ``} For general non-Monday questions, answer from general knowledge or say you cannot browse.
 
 ${context}
 
@@ -254,9 +287,10 @@ Internal-only board IDs (NEVER reveal to the user; use only for tool calls):
 - "New general ps form" / New general PS board => 18383803050
 
 ${personFormAnalysisBlock}
+${protocolPlusMondayBlock}
 Tool-use constraints (critical):
 - Do NOT fetch entire boards or huge datasets. Prefer the **smallest** tool that answers the question.
-${lumosNameSearchBlock}${fallbackMcpNameSearch}- **Inline pasted form in the same message:** If the user already supplied **full or substantial** form fields (demographics, BMI, meds, conditions, etc.) and wants analysis/eligibility, **do not** require a Monday search for that — ${analysisInvoke ? `use \`analysis_invoke\` with that content and summarize **only** the API outcome (no standalone model eligibility report)` : `analyze from the paste`}. Use Monday tools only if they also ask to find the person on a board or cross-check a record.
+${lumosNameSearchBlock}${fallbackMcpNameSearch}- **Inline pasted form in the same message:** If the user already supplied **full or substantial** form fields (demographics, BMI, meds, conditions, etc.) and wants analysis/eligibility, **do not** require a Monday search for that — ${analysisInvoke ? `use \`analysis_invoke\` with that content **when** they want the **prescreen API** result and summarize **only** the API outcome. If they asked for **your** assessment from paste/files only (no API), analyze in-thread.` : `analyze from the paste`}. Use Monday tools only if they also ask to find the person on a board or cross-check a record.
 - **After a name hit** (from \`get_board_items_by_name\` on the **correct** board, or \`lumos_search_person_by_item_name\` only when cross-board ambiguity): when MCP is connected, use \`monday_get_item\` only if you need full column values — and only for the few matching rows. If MCP is down, use only what the name search returned.
 - **Do NOT** use \`monday_list_items_in_board\` / \`monday_get_board_leads\` / \`monday_get_board_lead_referrals\` for **name-only** person lookup when \`get_board_items_by_name\` on the routed board (or \`lumos_search_person_by_item_name\` when truly ambiguous) would work — they pull large pages. **Exception:** when the user asks to **sample / fetch any one form** for **analysis** on **New general ps form**, you may list briefly to pick a non-empty row, then \`monday_get_item\` if needed${analysisInvoke ? `, then **\`analysis_invoke\`** with the form payload` : ``}.
 - **Structured status + last-contact** on one board: if you know the board's \`statusColumnId\` and \`lastContactColumnId\`, you may use \`monday_find_participant_in_board\` (it also matches **item name** substring). Prefer \`get_board_items_by_name\` on the **target** board first; use \`lumos_search_person_by_item_name\` only for genuinely ambiguous cross-board name lookups.
@@ -365,6 +399,22 @@ export async function POST(req: Request) {
     const parsedAttachments = parseChatAttachments(attachmentsRaw);
     if (parsedAttachments instanceof Response) {
       return parsedAttachments;
+    }
+
+    const pdfOriginalBuffers = new Map<number, Buffer>();
+    for (let i = 0; i < parsedAttachments.length; i++) {
+      const a = parsedAttachments[i];
+      if (a.mimeType !== "application/pdf") continue;
+      let buf: Buffer;
+      try {
+        buf = Buffer.from(a.data, "base64");
+      } catch {
+        continue;
+      }
+      if (buf.length === 0) {
+        return jsonError(400, `The PDF "${a.name}" was empty.`);
+      }
+      pdfOriginalBuffers.set(i, buf);
     }
 
     const mcpUrl = process.env.MONDAY_MCP_URL?.trim();
@@ -486,12 +536,97 @@ export async function POST(req: Request) {
       currentTime
     );
 
+    const prepareStep = createAnalysisInvokePrepareStep(analysisInvoke);
+
+    if (pdfOriginalBuffers.size > 0) {
+      let maxPages = effectiveMondayChatMaxPdfPages();
+      const minPages = 2;
+      let pdfContextProbeOk = false;
+
+      for (let attempt = 0; attempt < 24; attempt++) {
+        for (const [idx, buf] of pdfOriginalBuffers) {
+          const a = parsedAttachments[idx];
+          const { buffer, pageCount, truncated } = await clampPdfToMaxPages(
+            buf,
+            maxPages
+          );
+          a.data = buffer.toString("base64");
+          if (truncated && attempt === 0) {
+            console.warn(
+              `[monday] PDF "${a.name}" had ${pageCount} pages; clamping to ${maxPages} page(s) max (initial cap before context probe).`
+            );
+          } else if (pageCount === PDF_PAGE_COUNT_UNKNOWN && attempt === 0) {
+            console.warn(
+              `[monday] PDF "${a.name}" could not be parsed for page trimming locally; sending original bytes (Bedrock may still read it).`
+            );
+          }
+        }
+
+        const probeMessages = applyChatAttachmentsToMessages(
+          messages as ModelMessage[],
+          parsedAttachments
+        );
+
+        try {
+          // Must not use toolChoice: "none" — @ai-sdk/amazon-bedrock strips ALL tools from the
+          // Converse request for "none", so the probe would under-count vs streamText (auto).
+          await generateText({
+            model: bedrock(modelId),
+            messages: probeMessages,
+            system,
+            tools,
+            maxOutputTokens: 1,
+            maxRetries: 0,
+            stopWhen: stepCountIs(1),
+            ...(prepareStep ? { prepareStep } : {}),
+          });
+          pdfContextProbeOk = true;
+          if (attempt > 0) {
+            console.warn(
+              `[monday] PDF context fits Bedrock input limit at ${maxPages} page(s) max per PDF (after ${attempt + 1} probe attempt(s)).`
+            );
+          }
+          break;
+        } catch (e) {
+          if (!isPromptTooLongError(e)) {
+            throw e;
+          }
+          const reported = parseReportedPromptTokens(e);
+          let next =
+            reported != null
+              ? Math.floor(
+                  maxPages * (BEDROCK_PROMPT_FIT_TARGET_TOKENS / reported)
+                )
+              : Math.floor(maxPages * 0.82);
+          next = Math.max(minPages, next);
+          if (next >= maxPages) {
+            next = maxPages - 1;
+          }
+          maxPages = next;
+          console.warn(
+            `[monday] prompt too long${reported != null ? ` (${reported} tokens)` : ""}; retrying with max ${maxPages} PDF page(s) per file`
+          );
+          if (maxPages < minPages) {
+            return jsonError(
+              400,
+              "The attached PDF(s) are too large for the model context even after shrinking. Try a shorter PDF, fewer pages, or fewer files."
+            );
+          }
+        }
+      }
+
+      if (!pdfContextProbeOk) {
+        return jsonError(
+          500,
+          "Could not confirm the PDF fits the model input limit. Try a smaller attachment."
+        );
+      }
+    }
+
     const modelMessages = applyChatAttachmentsToMessages(
       messages as ModelMessage[],
       parsedAttachments
     );
-
-    const prepareStep = createAnalysisInvokePrepareStep(analysisInvoke);
 
     const result = streamText({
       model: bedrock(modelId),
