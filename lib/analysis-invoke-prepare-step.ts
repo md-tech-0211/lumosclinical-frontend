@@ -45,6 +45,180 @@ export function userRequestedAnalysisOrEligibility(text: string): boolean {
   );
 }
 
+/** Any user turn in the thread includes a file attachment (current or earlier message). */
+function anyUserMessageHasFileParts(messages: ModelMessage[]): boolean {
+  for (const m of messages) {
+    if (!m || m.role !== "user") continue;
+    const c = m.content;
+    if (typeof c === "string") continue;
+    if (!Array.isArray(c)) continue;
+    const parts = c as Array<{ type?: string }>;
+    if (parts.some((p) => p && p.type === "file")) return true;
+  }
+  return false;
+}
+
+/** Any user turn includes a PDF attachment (for protocol-in-thread workflows). */
+function conversationHasPdfAttachment(messages: ModelMessage[]): boolean {
+  for (const m of messages) {
+    if (!m || m.role !== "user") continue;
+    const c = m.content;
+    if (typeof c === "string") continue;
+    if (!Array.isArray(c)) continue;
+    for (const p of c as Array<{
+      type?: string;
+      mediaType?: string;
+      filename?: string;
+    }>) {
+      if (!p || p.type !== "file") continue;
+      const mt = String(p.mediaType || "").toLowerCase();
+      const fn = String(p.filename || "").toLowerCase();
+      if (
+        mt === "application/pdf" ||
+        mt.includes("pdf") ||
+        fn.endsWith(".pdf")
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** User explicitly wants the deployed eligibility API, not in-chat review. */
+function userExplicitlyWantsEligibilityApi(userText: string): boolean {
+  return /\b(analysis_invoke|prescreen api|eligibility api|automated eligibility|run (the )?eligibility (service|api|tool))\b/i.test(
+    userText
+  );
+}
+
+function messageHasPdfAttachment(m: ModelMessage): boolean {
+  if (m.role !== "user") return false;
+  const c = m.content;
+  if (typeof c === "string" || !Array.isArray(c)) return false;
+  for (const p of c as Array<{
+    type?: string;
+    mediaType?: string;
+    filename?: string;
+  }>) {
+    if (!p || p.type !== "file") continue;
+    const mt = String(p.mediaType || "").toLowerCase();
+    const fn = String(p.filename || "").toLowerCase();
+    if (
+      mt === "application/pdf" ||
+      mt.includes("pdf") ||
+      fn.endsWith(".pdf")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function attachmentFilenameLooksProtocolRelated(messages: ModelMessage[]): boolean {
+  for (const m of messages) {
+    if (m.role !== "user") continue;
+    const c = m.content;
+    if (typeof c === "string" || !Array.isArray(c)) continue;
+    for (const p of c as Array<{ type?: string; filename?: string }>) {
+      if (p?.type !== "file" || typeof p.filename !== "string") continue;
+      const fn = p.filename.toLowerCase();
+      if (
+        /\b(protocol|summary|srp|ib|study|trial|investigator|alto|clinical|subject|eligibility|ie|i\/e)\b/i.test(
+          fn
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** PDF was attached in an earlier user turn (follow-up message may have no files). */
+function earlierUserTurnHadPdf(messages: ModelMessage[]): boolean {
+  const users = messages.filter((m) => m.role === "user");
+  if (users.length < 2) return false;
+  return users.slice(0, -1).some((m) => messageHasPdfAttachment(m));
+}
+
+function threadTextSuggestsProtocolContext(messages: ModelMessage[]): boolean {
+  const all = messages
+    .filter((m) => m.role === "user")
+    .map((m) => textFromUserMessageContent(m.content))
+    .join("\n");
+  return /\b(protocol|study protocol|protocol summary|investigator|srp|inclusion|exclusion|vs protocol|per protocol|ib\b|subject eligibility)\b/i.test(
+    all
+  );
+}
+
+/**
+ * User wants review/analysis from protocol + patient data in-thread without forcing
+ * the deployed eligibility tool (`analysis_invoke`).
+ */
+function shouldSkipForcedAnalysisInvoke(
+  userText: string,
+  messages: ModelMessage[]
+): boolean {
+  const hasFiles = anyUserMessageHasFileParts(messages);
+
+  const explicitOptOut =
+    /\b(don'?t|do not|never)\s+(use|call|invoke|open)\b.{0,100}\b(analysis_invoke|the analysis tool|the eligibility (api|service)?)\b/i.test(
+      userText
+    ) ||
+    /\b(don'?t|do not)\s+fetch\b.{0,50}\b(monday|board|live)\b/i.test(
+      userText
+    ) ||
+    /\b(no|without)\s+(analysis_invoke|the eligibility api|monday (data|fetch))\b/i.test(
+      userText
+    ) ||
+    /\b(analy[sz]e|review|assess)\b.{0,140}\b(yourself|on your own|manually|in[- ]context|from (the )?(files?|attachments?|pdfs?))\b/i.test(
+      userText
+    );
+
+  if (explicitOptOut) return true;
+
+  if (
+    hasFiles &&
+    /\b(protocol|investigator|inclusion|exclusion|srp|study)\b/i.test(
+      userText
+    ) &&
+    /\b(analy[sz]e|review|compare|assess|eligib|qualif|compliance)\b/i.test(
+      userText
+    )
+  ) {
+    return true;
+  }
+
+  /** Protocol/summary PDF + intent to use Monday data in-chat (not the eligibility API). */
+  if (
+    hasFiles &&
+    /\b(protocol|summary|srp|ib)\b/i.test(userText) &&
+    /\b(monday|board|fetch|item|patient|candidate|subject|case|row)\b/i.test(
+      userText
+    )
+  ) {
+    return true;
+  }
+
+  /**
+   * Protocol context already in the conversation (PDF + protocol-like thread, filename,
+   * or PDF in an earlier turn): prefer in-chat analysis; do not force `analysis_invoke`
+   * unless they explicitly ask for the eligibility API.
+   */
+  if (
+    conversationHasPdfAttachment(messages) &&
+    !userExplicitlyWantsEligibilityApi(userText) &&
+    (threadTextSuggestsProtocolContext(messages) ||
+      attachmentFilenameLooksProtocolRelated(messages) ||
+      earlierUserTurnHadPdf(messages))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * MCP tools from `createMCPClient` appear on `dynamicToolCalls`; local tools (e.g. `analysis_invoke`,
  * `lumos_search_person_by_item_name`) use `toolCalls`. We must check both or forcing never triggers.
@@ -194,6 +368,10 @@ export function createAnalysisInvokePrepareStep(
   return ({ steps, messages }) => {
     const userText = extractLatestUserText(messages);
     if (!userRequestedAnalysisOrEligibility(userText)) {
+      return undefined;
+    }
+
+    if (shouldSkipForcedAnalysisInvoke(userText, messages)) {
       return undefined;
     }
 

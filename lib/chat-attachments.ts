@@ -7,6 +7,60 @@ export const MAX_CHAT_ATTACHMENTS = 5;
 export const MAX_CHAT_FILE_BYTES_CLIENT = 10 * 1024 * 1024;
 export const MAX_CHAT_FILE_BYTES_SERVER = 12 * 1024 * 1024;
 
+/**
+ * Bedrock rejects a single PDF attachment over this many pages (per-document limit).
+ */
+export const BEDROCK_MAX_PDF_PAGES_PER_DOCUMENT = 100;
+
+/**
+ * Default max pages we send per PDF so **system prompt + tool definitions + PDF**
+ * stay under Bedrock’s ~200k input-token cap. The per-document limit is 100, but
+ * the total request must fit—dense PDFs need a lower cap.
+ * Override with `MONDAY_CHAT_MAX_PDF_PAGES` (1–100).
+ */
+export const DEFAULT_MONDAY_CHAT_MAX_PDF_PAGES = 90;
+
+/**
+ * Effective page clamp for `/api/ai/monday` (server-only). Uses env when set.
+ */
+export function resolveMondayChatMaxPdfPages(): number {
+  const raw = process.env.MONDAY_CHAT_MAX_PDF_PAGES?.trim();
+  let n = DEFAULT_MONDAY_CHAT_MAX_PDF_PAGES;
+  if (raw) {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isFinite(parsed)) {
+      n = parsed;
+    }
+  }
+  return Math.min(
+    BEDROCK_MAX_PDF_PAGES_PER_DOCUMENT,
+    Math.max(1, n)
+  );
+}
+
+/**
+ * Basis points applied to {@link resolveMondayChatMaxPdfPages} so **system + tools + PDF**
+ * stay under the ~200k input limit (tool schemas and prompt text also count).
+ * Default 9650 = 96.5%. Override with `MONDAY_CHAT_PDF_PAGE_HEADROOM_BPS` (1–10000).
+ */
+const DEFAULT_PDF_PAGE_HEADROOM_BPS = 9650;
+
+/**
+ * Final page count used when clamping PDFs for Bedrock. Applies headroom after env/base cap.
+ */
+export function effectiveMondayChatMaxPdfPages(): number {
+  const resolved = resolveMondayChatMaxPdfPages();
+  const raw = process.env.MONDAY_CHAT_PDF_PAGE_HEADROOM_BPS?.trim();
+  let bps = DEFAULT_PDF_PAGE_HEADROOM_BPS;
+  if (raw) {
+    const p = Number.parseInt(raw, 10);
+    if (Number.isFinite(p) && p >= 1 && p <= 10000) {
+      bps = p;
+    }
+  }
+  return Math.max(1, Math.floor((resolved * bps) / 10000));
+}
+
 const EXT_TO_MIME: Record<string, string> = {
   ".pdf": "application/pdf",
   ".png": "image/png",
