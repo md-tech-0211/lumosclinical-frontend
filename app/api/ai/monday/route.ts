@@ -303,6 +303,11 @@ ${lumosNameSearchBlock}${fallbackMcpNameSearch}- **Inline pasted form in the sam
 
 Examples (same routing rules): person’s data / BMI / prescreen / subjects / patients → **form board** only unless they said **lead** / **leads** / **lead tracker**. Leads list, lead counts, lead pipeline, calls scheduled **for leads** → **Incoming Leads Tracker** only (user should mention leads or it is clearly a leads-dashboard question). ${analysisInvoke ? `**Analysis** / **eligibility** → **\`analysis_invoke\`** only after you have real payload data; **never** if the lookup found nothing.` : ``}
 
+**Large lists (critical to avoid truncation):**
+- If the user asks for a "full list" like "full 25 candidates" or "all 25 from the board", you MUST return **all N rows** by using **compact tables** and **chunking** into multiple tables (e.g. rows 1–10, 11–20, 21–25). Do not stop early.
+- Default list columns for candidates: **Name**, **Status**, **DOB** (or blank), **Age** (or blank), **Sex** (or blank), **Phone** (or blank), **Email** (or blank), **Location** (or blank). Do **not** include long free-text fields (medical history, psychiatric history, medications, notes) unless the user explicitly asks for those details.
+- Keep each cell concise; if a value is very long, truncate the cell to ~120 characters with an ellipsis.
+
 When your answer is tabular (multiple rows and columns of related data — e.g. board items with names, statuses, assignees, dates), format it as a **GitHub-flavored Markdown table**: header row, separator row (\`|---|\`), then one row per record. Do not fake tables with spaces or bullet lists unless the user asked for a non-tabular layout. For a single pair of facts, a short sentence or bullet list is fine.`;
 }
 
