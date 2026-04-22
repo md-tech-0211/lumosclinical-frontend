@@ -40,12 +40,12 @@ const components: Components = {
     </th>
   ),
   td: ({ children, ...props }) => (
-    <td className="px-3 py-2 align-top text-sm leading-snug" {...props}>
+    <td className="whitespace-pre-wrap px-3 py-2 align-top text-sm leading-snug" {...props}>
       {children}
     </td>
   ),
   p: ({ children, ...props }) => (
-    <p className="mb-2 last:mb-0" {...props}>
+    <p className="mb-2 whitespace-pre-wrap last:mb-0" {...props}>
       {children}
     </p>
   ),
@@ -60,7 +60,7 @@ const components: Components = {
     </ol>
   ),
   li: ({ children, ...props }) => (
-    <li className="leading-relaxed" {...props}>
+    <li className="whitespace-pre-wrap leading-relaxed" {...props}>
       {children}
     </li>
   ),
@@ -114,7 +114,7 @@ const components: Components = {
 export function AssistantMarkdown({ content }: { content: string }) {
   const safe = sanitizeAssistantDisplayText(content);
   return (
-    <div className="text-sm leading-relaxed text-foreground [&_p]:text-foreground">
+    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground [&_p]:text-foreground">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {safe}
       </ReactMarkdown>
