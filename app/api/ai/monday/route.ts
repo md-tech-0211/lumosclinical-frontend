@@ -267,6 +267,16 @@ ${context}
 
 Always respond in clear, simple language.
 
+**Schema-first fetching (critical for “all candidate data”):**
+- When the user asks to “fetch data”, “show all data”, “all fields”, “all columns”, “table schema”, or mentions **multiple candidates**, you MUST understand the board’s column schema **before** summarizing.
+- Preferred order:
+  - **(1) Fetch board columns/schema (if the MCP provides a tool for it)** (common tool names: \`monday_get_board_columns\`, \`monday_get_board_schema\`, \`get_board_columns\`). Use the routed board only.
+  - **(2) Fetch full item data for each matched candidate** using \`monday_get_item\` (do not rely on the name search result alone).
+- If a board-schema tool is NOT available:
+  - Fetch **one** matched item via \`monday_get_item\` first to learn which fields/columns exist.
+  - Then fetch \`monday_get_item\` for **every** matched candidate and return the full non-empty dataset.
+- If any fetch returns empty / not found, say clearly “no data returned” for that candidate instead of guessing.
+
 **Monday data — only these two boards (mandatory):**
 - Fetch Monday items **only** from:
   1) **Incoming Leads Tracker** (leads / lead tracker) — ID \`9654922517\`
