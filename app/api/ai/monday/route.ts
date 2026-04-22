@@ -205,6 +205,8 @@ Current time: ${currentTime} UTC`;
 - **Output format requirement:** After \`analysis_invoke\` returns, always include:
   - **Eligibility**: Eligible / Ineligible / Pending (or whatever the API says).
   - **Why**: 2–6 short bullet points explaining *why* based strictly on the API response fields (e.g. reasons, rule hits, failed criteria). If the API does not return reasons, say “No reasons provided by the analysis service” (do not invent).
+- **Bulk output requirement (no paragraphs):** If the analysis covered **multiple candidates** (e.g. \`body.candidates\`), present results primarily as a **GitHub-flavored Markdown table** (one row per candidate). Preferred columns: **Name**, **Eligibility**, **Top reasons** (short; use semicolons), **Notes** (optional). Avoid long narrative paragraphs; at most 1–2 short sentences after the table if needed.
+- **Batched tool responses:** If the tool returned a batched response (e.g. \`data.batched: true\` with multiple batch results), merge batches into **one** table for the user. If some batches failed, include an **Errors** column or a short errors section listing only the failing batch numbers and error messages.
 - **Conclusions** come from the API response only — no invented multi-protocol write-ups. Short user-facing summary after \`data\`. If \`ok: false\`, say so.
 
 `
@@ -314,27 +316,70 @@ When your answer is tabular (multiple rows and columns of related data — e.g. 
 const MAX_TOOL_RESULT_CHARS = 60_000;
 const MAX_LIST_ITEMS = 25;
 
+function isEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v.trim().length === 0;
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return Boolean(v) && typeof v === "object" && !Array.isArray(v);
+}
+
+/**
+ * Recursively removes "empty" values so the model only sees useful data.
+ * - Removes: null, undefined, "", "   ", empty arrays, empty objects
+ * - Keeps: 0, false, non-empty strings, dates-as-strings, etc.
+ */
+function pruneEmptyDeep(value: unknown): unknown {
+  if (value == null) return undefined;
+  if (isEmptyString(value)) return undefined;
+
+  if (Array.isArray(value)) {
+    const prunedItems = value
+      .map((v) => pruneEmptyDeep(v))
+      .filter((v) => v !== undefined);
+    if (prunedItems.length === 0) return undefined;
+    return prunedItems;
+  }
+
+  if (isPlainObject(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      const pruned = pruneEmptyDeep(v);
+      if (pruned !== undefined) out[k] = pruned;
+    }
+    if (Object.keys(out).length === 0) return undefined;
+    return out;
+  }
+
+  return value;
+}
+
 function truncateToolResult(value: unknown): unknown {
+  const pruned = pruneEmptyDeep(value);
+  if (pruned === undefined) {
+    return { empty: true };
+  }
+
   // Fast path: small payloads
   try {
-    const s = JSON.stringify(value);
-    if (s.length <= MAX_TOOL_RESULT_CHARS) return value;
+    const s = JSON.stringify(pruned);
+    if (s.length <= MAX_TOOL_RESULT_CHARS) return pruned;
   } catch {
     // fall through
   }
 
   // Prefer structured truncation for common shapes
-  if (Array.isArray(value)) {
+  if (Array.isArray(pruned)) {
     return {
       truncated: true,
       originalType: "array",
-      originalLength: value.length,
-      items: value.slice(0, MAX_LIST_ITEMS),
+      originalLength: pruned.length,
+      items: pruned.slice(0, MAX_LIST_ITEMS),
     };
   }
 
-  if (value && typeof value === "object") {
-    const v = value as Record<string, unknown>;
+  if (pruned && typeof pruned === "object") {
+    const v = pruned as Record<string, unknown>;
     for (const k of ["items", "data", "results", "leads"]) {
       const maybeArr = v[k];
       if (Array.isArray(maybeArr)) {
@@ -351,9 +396,9 @@ function truncateToolResult(value: unknown): unknown {
   // Last resort: return a compact preview
   let preview = "";
   try {
-    preview = JSON.stringify(value).slice(0, MAX_TOOL_RESULT_CHARS);
+    preview = JSON.stringify(pruned).slice(0, MAX_TOOL_RESULT_CHARS);
   } catch {
-    preview = String(value).slice(0, MAX_TOOL_RESULT_CHARS);
+    preview = String(pruned).slice(0, MAX_TOOL_RESULT_CHARS);
   }
   return {
     truncated: true,
