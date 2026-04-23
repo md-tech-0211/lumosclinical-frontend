@@ -267,15 +267,21 @@ ${context}
 
 Always respond in clear, simple language.
 
-**Schema-first fetching (critical for “all candidate data”):**
-- When the user asks to “fetch data”, “show all data”, “all fields”, “all columns”, “table schema”, or mentions **multiple candidates**, you MUST understand the board’s column schema **before** summarizing.
-- Preferred order:
-  - **(1) Fetch board columns/schema (if the MCP provides a tool for it)** (common tool names: \`monday_get_board_columns\`, \`monday_get_board_schema\`, \`get_board_columns\`). Use the routed board only.
-  - **(2) Fetch full item data for each matched candidate** using \`monday_get_item\` (do not rely on the name search result alone).
+**Schema-first fetching (critical for “all candidate data” and **table answers**):**
+- When the user asks to “fetch data”, “show all data”, “all fields”, “all columns”, “table schema”, **“in a table”**, **“as a table”**, **“table format”**, or mentions **multiple candidates**, you MUST understand the board’s **column schema** first, then fetch **full rows** — **especially** when they want candidate data presented as a **Markdown table**.
+- Preferred order (**do not skip for multi-candidate table requests**):
+  - **(1) Fetch board columns/schema** (if the MCP provides it: \`monday_get_board_columns\`, \`monday_get_board_schema\`, \`get_board_columns\`, etc.) on the **routed board only**. Use column **titles** as the logical field names for your table headers (user-facing labels, not raw ids).
+  - **(2) For each candidate row** you will include, call \`monday_get_item\` so you have **full column values** for that item. Name search / list previews are **not** enough to fill a complete table — you need the full item payload per person.
 - If a board-schema tool is NOT available:
   - Fetch **one** matched item via \`monday_get_item\` first to learn which fields/columns exist.
   - Then fetch \`monday_get_item\` for **every** matched candidate and return the full non-empty dataset.
+- **Table output + multiple people:** Build the table from **schema + one full \`monday_get_item\` per candidate**. Include **all column details** you retrieved for those items (split wide data across multiple tables or column groups if needed). Only narrow to a **subset** of columns if the user explicitly asked for specific fields (e.g. “name and phone only”).
 - If any fetch returns empty / not found, say clearly “no data returned” for that candidate instead of guessing.
+
+**“Empty” rows vs sparse tool payloads (critical):**
+- Do **not** tell the user the board is “empty”, that rows are “placeholders”, or that “only one candidate has completed data”, unless tools returned **no matching items**, **not found**, or an explicit empty marker from the integration — **not** merely because some columns look blank or the payload omitted long text fields.
+- If tool JSON is **sparse** but still has an item id/name/status, describe it as **limited fields in this response** or **not enough columns for eligibility/API**, and list **what is missing for that task**. Do **not** infer that Monday’s UI table is blank.
+- Mirrors, formulas, and some column types may **not** surface in full in API JSON; that is **not** proof that cells are empty on the board.
 
 **Monday data — only these two boards (mandatory):**
 - Fetch Monday items **only** from:
@@ -315,12 +321,20 @@ ${lumosNameSearchBlock}${fallbackMcpNameSearch}- **Inline pasted form in the sam
 
 Examples (same routing rules): person’s data / BMI / prescreen / subjects / patients → **form board** only unless they said **lead** / **leads** / **lead tracker**. Leads list, lead counts, lead pipeline, calls scheduled **for leads** → **Incoming Leads Tracker** only (user should mention leads or it is clearly a leads-dashboard question). ${analysisInvoke ? `**Analysis** / **eligibility** → **\`analysis_invoke\`** only after you have real payload data; **never** if the lookup found nothing.` : ``}
 
+**Multiple candidates — table format (mandatory):**
+- If the user asks for data for **two or more** candidates (several names, “all of them”, “each person’s…”, comparing people, or any **multiple rows** of the same kind of fields), present the **main result** as **GitHub-flavored Markdown table(s)**: header row, separator (\`|---|\`), **one row per candidate**. Do **not** use repeated bullet sections or one paragraph per person as the primary layout unless the user explicitly asks for prose only.
+- **Before** building that table: follow **Schema-first fetching** above — **see the board schema**, then **\`monday_get_item\` for each** of those candidates so the table reflects **complete item data**, not stubs from search results.
+- Too many columns → split into **more than one table** (same candidates, different column groups) or **chunk** rows (e.g. 8–15 people per table) so it stays readable.
+
 **Large lists (critical to avoid truncation):**
 - If the user asks for a "full list" like "full 25 candidates" or "all 25 from the board", you MUST return **all N rows** by using **compact tables** and **chunking** into multiple tables (e.g. rows 1–10, 11–20, 21–25). Do not stop early.
-- Default list columns for candidates: **Name**, **Status**, **DOB** (or blank), **Age** (or blank), **Sex** (or blank), **Phone** (or blank), **Email** (or blank), **Location** (or blank). Do **not** include long free-text fields (medical history, psychiatric history, medications, notes) unless the user explicitly asks for those details.
+- **When the user did not** ask for a full table of all fields, a **default short set** of columns is often enough: **Name**, **Status**, **DOB** (or blank), **Age** (or blank), **Sex** (or blank), **Phone** (or blank), **Email** (or blank), **Location** (or blank). If you are not in the “all details” case, you may **omit** long free-text fields (medical history, notes, etc.) unless the user asked for them.
+- For **“all details”**, **“all fields”**, **“show everything”**, or **multi-candidate table data** (schema-first rules), include **all relevant columns** from the board schema populated from **full \`monday_get_item\`** per row; split wide data across multiple tables if needed.
 - Keep each cell concise; if a value is very long, truncate the cell to ~120 characters with an ellipsis.
 
-When your answer is tabular (multiple rows and columns of related data — e.g. board items with names, statuses, assignees, dates), format it as a **GitHub-flavored Markdown table**: header row, separator row (\`|---|\`), then one row per record. Do not fake tables with spaces or bullet lists unless the user asked for a non-tabular layout. For a single pair of facts, a short sentence or bullet list is fine.`;
+**Single vs multi-row presentation:** For **one** candidate, a short paragraph or small bullet list is fine. For **two or more**, tables are **required** as above.
+
+When your answer is tabular (multiple rows and columns of related data — e.g. board items with names, statuses, assignees, dates), format it as a **GitHub-flavored Markdown table**: header row, separator row (\`|---|\`), then one row per record. Do not fake tables with spaces or bullet lists unless the user asked for a non-tabular layout.`;
 }
 
 const MAX_TOOL_RESULT_CHARS = 60_000;
@@ -336,8 +350,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 
 /**
  * Recursively removes "empty" values so the model only sees useful data.
- * - Removes: null, undefined, "", "   ", empty arrays, empty objects
- * - Keeps: 0, false, non-empty strings, dates-as-strings, etc.
+ * - Removes: null, undefined, "", "   ", empty objects (after pruning children)
+ * - Keeps: 0, false, non-empty strings, dates-as-strings, **empty arrays []**
+ *   (so `{ items: [] }` stays meaningful — “no results” vs `{ empty: true }`).
  */
 function pruneEmptyDeep(value: unknown): unknown {
   if (value == null) return undefined;
@@ -347,7 +362,6 @@ function pruneEmptyDeep(value: unknown): unknown {
     const prunedItems = value
       .map((v) => pruneEmptyDeep(v))
       .filter((v) => v !== undefined);
-    if (prunedItems.length === 0) return undefined;
     return prunedItems;
   }
 
@@ -365,9 +379,26 @@ function pruneEmptyDeep(value: unknown): unknown {
 }
 
 function truncateToolResult(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return {
+      empty: true,
+      note: "Tool returned null or undefined.",
+    };
+  }
+
   const pruned = pruneEmptyDeep(value);
   if (pruned === undefined) {
-    return { empty: true };
+    if (Array.isArray(value) && value.length === 0) {
+      return [];
+    }
+    if (isPlainObject(value) && Object.keys(value).length === 0) {
+      return {};
+    }
+    return {
+      emptyAfterNormalization: true,
+      note:
+        "All fields were null/blank after normalization, or nested objects became empty. The Monday row may still have data (mirrors, formulas, unsupported types). Do not claim the board or rows are empty in the UI—say this response had sparse JSON or refetch with monday_get_item / column schema.",
+    };
   }
 
   // Fast path: small payloads
