@@ -267,6 +267,11 @@ ${context}
 
 Always respond in clear, simple language.
 
+**“Empty” rows vs sparse tool payloads (critical):**
+- Do **not** tell the user the board is “empty”, that rows are “placeholders”, or that “only one candidate has completed data”, unless tools returned **no matching items**, **not found**, or an explicit empty marker from the integration — **not** merely because some columns look blank or the payload omitted long text fields.
+- If tool JSON is **sparse** but still has an item id/name/status, describe it as **limited fields in this response** or **not enough columns for eligibility/API**, and list **what is missing for that task**. Do **not** infer that Monday’s UI table is blank.
+- Mirrors, formulas, and some column types may **not** surface in full in API JSON; that is **not** proof that cells are empty on the board.
+
 **Schema-first fetching (critical for “all candidate data” and **table answers**):**
 - When the user asks to “fetch data”, “show all data”, “all fields”, “all columns”, “table schema”, **“in a table”**, **“as a table”**, **“table format”**, or mentions **multiple candidates**, you MUST understand the board’s **column schema** first, then fetch **full rows** — **especially** when they want candidate data presented as a **Markdown table**.
 - Preferred order (**do not skip for multi-candidate table requests**):
@@ -278,10 +283,6 @@ Always respond in clear, simple language.
 - **Table output + multiple people:** Build the table from **schema + one full \`monday_get_item\` per candidate**. Include **all column details** you retrieved for those items (split wide data across multiple tables or column groups if needed). Only narrow to a **subset** of columns if the user explicitly asked for specific fields (e.g. “name and phone only”).
 - If any fetch returns empty / not found, say clearly “no data returned” for that candidate instead of guessing.
 
-**“Empty” rows vs sparse tool payloads (critical):**
-- Do **not** tell the user the board is “empty”, that rows are “placeholders”, or that “only one candidate has completed data”, unless tools returned **no matching items**, **not found**, or an explicit empty marker from the integration — **not** merely because some columns look blank or the payload omitted long text fields.
-- If tool JSON is **sparse** but still has an item id/name/status, describe it as **limited fields in this response** or **not enough columns for eligibility/API**, and list **what is missing for that task**. Do **not** infer that Monday’s UI table is blank.
-- Mirrors, formulas, and some column types may **not** surface in full in API JSON; that is **not** proof that cells are empty on the board.
 
 **Monday data — only these two boards (mandatory):**
 - Fetch Monday items **only** from:
@@ -310,7 +311,7 @@ Tool-use constraints (critical):
 - Do NOT fetch entire boards or huge datasets. Prefer the **smallest** tool that answers the question.
 ${lumosNameSearchBlock}${fallbackMcpNameSearch}- **Inline pasted form in the same message:** If the user already supplied **full or substantial** form fields (demographics, BMI, meds, conditions, etc.) and wants analysis/eligibility, **do not** require a Monday search for that — ${analysisInvoke ? `use \`analysis_invoke\` with that content **when** they want the **prescreen API** result and summarize **only** the API outcome. If they asked for **your** assessment from paste/files only (no API), analyze in-thread.` : `analyze from the paste`}. Use Monday tools only if they also ask to find the person on a board or cross-check a record.
 - **After a name hit** (from \`get_board_items_by_name\` on the **correct** board, or \`lumos_search_person_by_item_name\` only when cross-board ambiguity): when MCP is connected, use \`monday_get_item\` only if you need full column values — and only for the few matching rows. If MCP is down, use only what the name search returned.
-- **Do NOT** use \`monday_list_items_in_board\` / \`monday_get_board_leads\` / \`monday_get_board_lead_referrals\` for **name-only** person lookup when \`get_board_items_by_name\` on the routed board (or \`lumos_search_person_by_item_name\` when truly ambiguous) would work — they pull large pages. **Exception:** when the user asks to **sample / fetch any one form** for **analysis** on **New general ps form**, you may list briefly to pick a non-empty row, then \`monday_get_item\` if needed${analysisInvoke ? `, then **\`analysis_invoke\`** with the form payload` : ``}.
+- **Do NOT** use \`monday_list_items_in_board\` / \`monday_get_board_leads\` / \`monday_get_board_lead_referrals\` for **name-only** person lookup when \`get_board_items_by_name\` on the routed board (or \`lumos_search_person_by_item_name\` when truly ambiguous) would work — they pull large pages. **Exceptions (list is only for IDs, then always \`monday_get_item\`):** (a) **sample / one form** for **analysis** on **New general ps form** — list briefly if needed, then \`monday_get_item\`${analysisInvoke ? `, then **\`analysis_invoke\`** if applicable` : ``}. (b) User asks for **the first N candidates**, **N rows**, **“give me 5 form rows”**, etc. — use **one** list call (or page) **only** to collect **N item IDs**, then **\`monday_get_item\` exactly N times** (once per ID). **Never** treat the list payload as full form data; **never** answer with **one** deep candidate when **N > 1** was requested.
 - **Structured status + last-contact** on one board: if you know the board's \`statusColumnId\` and \`lastContactColumnId\`, you may use \`monday_find_participant_in_board\` (it also matches **item name** substring). Prefer \`get_board_items_by_name\` on the **target** board first; use \`lumos_search_person_by_item_name\` only for genuinely ambiguous cross-board name lookups.
 - **Email / phone in a column (not in item name):** name-based tools will **not** find them. After name-based search returns nothing, say you could not find a match **by name**; do not bulk-fetch the board to grep email in the model.
 - **Counts / funnel / date-range metrics:** Prefer \`monday_board_status_date_metrics\` with the right \`statusColumnId\`, \`dateColumnId\`, and date range instead of listing all items.
@@ -325,6 +326,12 @@ Examples (same routing rules): person’s data / BMI / prescreen / subjects / pa
 - If the user asks for data for **two or more** candidates (several names, “all of them”, “each person’s…”, comparing people, or any **multiple rows** of the same kind of fields), present the **main result** as **GitHub-flavored Markdown table(s)**: header row, separator (\`|---|\`), **one row per candidate**. Do **not** use repeated bullet sections or one paragraph per person as the primary layout unless the user explicitly asks for prose only.
 - **Before** building that table: follow **Schema-first fetching** above — **see the board schema**, then **\`monday_get_item\` for each** of those candidates so the table reflects **complete item data**, not stubs from search results.
 - Too many columns → split into **more than one table** (same candidates, different column groups) or **chunk** rows (e.g. 8–15 people per table) so it stays readable.
+
+**Exact count (e.g. “5 candidates”, “three people’s form data”) — non-negotiable:**
+- If the user gives a **number** (**N**) of candidates/rows/forms, your answer MUST include **N table rows** of data from **\`monday_get_item\`** (after schema fetch), **unless** the board has **fewer than N items** — then say so and show **every** item that exists.
+- **Forbidden:** Delivering **one** full write-up for a single candidate when **N > 1**. **Forbidden:** Replacing **N − 1** rows with claims like “placeholder”, “mostly empty”, or “only one had data” **without** showing those rows’ actual column values from **\`monday_get_item\`**. Sparse columns still get a **table row**.
+- **Forbidden:** Repeated listing / “scanning for complete forms” **unless** the user explicitly asked for **only** rows with complete/substantial data. Default: **first N items** (by however the board was listed) **or** first N matches from search — then **get_item** each.
+- If a tool response is **truncated** (wrapper shows a slice), the returned rows are still valid IDs to fetch — **call \`monday_get_item\` for each** needed candidate; truncation is **not** proof the board lacks data.
 
 **Large lists (critical to avoid truncation):**
 - If the user asks for a "full list" like "full 25 candidates" or "all 25 from the board", you MUST return **all N rows** by using **compact tables** and **chunking** into multiple tables (e.g. rows 1–10, 11–20, 21–25). Do not stop early.
@@ -409,12 +416,16 @@ function truncateToolResult(value: unknown): unknown {
     // fall through
   }
 
+  const truncationHint =
+    "These entries are complete for tool-use: call monday_get_item for each item id you need. Do not infer the board is empty or abandon multi-candidate tables because this payload was shortened for size.";
+
   // Prefer structured truncation for common shapes
   if (Array.isArray(pruned)) {
     return {
       truncated: true,
       originalType: "array",
       originalLength: pruned.length,
+      assistantHint: truncationHint,
       items: pruned.slice(0, MAX_LIST_ITEMS),
     };
   }
@@ -428,6 +439,7 @@ function truncateToolResult(value: unknown): unknown {
           ...v,
           truncated: true,
           truncation: { key: k, originalLength: maybeArr.length, kept: MAX_LIST_ITEMS },
+          assistantHint: truncationHint,
           [k]: maybeArr.slice(0, MAX_LIST_ITEMS),
         };
       }
@@ -443,6 +455,7 @@ function truncateToolResult(value: unknown): unknown {
   }
   return {
     truncated: true,
+    assistantHint: truncationHint,
     preview,
   };
 }
